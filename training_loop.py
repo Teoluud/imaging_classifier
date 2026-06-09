@@ -40,8 +40,8 @@ class TrainingLoop:
 
             # Calculate loss and accuracy (per batch)
             loss = self.loss_fn(y_pred, y)
-            train_loss += loss
-            train_acc = self.accuracy_fn(y_pred, y)
+            train_loss += loss.item()
+            train_acc += self.accuracy_fn(y_pred, y).item()
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -68,8 +68,8 @@ class TrainingLoop:
                 val_pred = self.model(X_val)
 
                 # Calculate loss and accuracy (per batch)
-                val_loss += self.loss_fn(val_pred, y_val)
-                val_acc += self.accuracy_fn(val_pred, y_val)
+                val_loss += self.loss_fn(val_pred, y_val).item()
+                val_acc += self.accuracy_fn(val_pred, y_val).item()
 
             # Adjust metrics and print out
             val_loss /= len(data_loader)
@@ -82,14 +82,23 @@ class TrainingLoop:
         """ Runs the whole training loop, iterating through the specified epochs.
         """
         logger.debug("------------ TRAINING LOOP ------------")
+
+        best_val_loss = float('inf')
+
         for epoch in tqdm(range(epochs), desc="Running Training Loop..."):
             logger.debug(f"Epoch: {epoch}")
             train_loss = self.train_step(train_loader)
             val_loss = self.validation_step(val_loader)
             current_lr = self.optimizer.param_groups[0]['lr']
 
-            self.train_losses.append(train_loss.detach().cpu())
-            self.val_losses.append(val_loss.cpu())
+            self.train_losses.append(train_loss)
+            self.val_losses.append(val_loss)
             self.learning_rates.append(current_lr)
+
+            # --- EARLY STOPPING CHECK ---
+            # Save the model exactly when it hits a new peak performance
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                torch.save(self.model.state_dict(), 'best_fermi_model.pth')
 
         logger.info("Training Complete!")

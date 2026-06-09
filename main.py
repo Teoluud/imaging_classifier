@@ -5,7 +5,7 @@ from pathlib import Path
 
 from data import ImportData
 from model import FermiMultiBranchCNN
-from training import TrainingLoop
+from training_loop import TrainingLoop
 from logger import logger
 
 
@@ -36,12 +36,12 @@ if __name__ == "__main__":
     loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=LEARNING_RATE,
-                                 weight_decay=1e-4)
+                                 weight_decay=0)
     acc_fn = MulticlassAccuracy(num_classes=2)
 
     training_loop = TrainingLoop(model, loss_fn, optimizer, acc_fn, device)
 
-    epochs = 10
+    epochs = 50
 
     training_loop.run(epochs, train_loader, val_loader)
 
@@ -63,3 +63,5 @@ if __name__ == "__main__":
     plt.subplot(1, 2, 2)
     plt.title("Learning Rate")
     plt.plot(epoch_x, learning_rates)
+
+    plt.savefig("loss_curves.png")
