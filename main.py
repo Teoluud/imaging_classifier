@@ -36,7 +36,7 @@ if __name__ == "__main__":
     loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=LEARNING_RATE,
-                                 weight_decay=0)
+                                 weight_decay=1e-4)
     acc_fn = MulticlassAccuracy(num_classes=2)
 
     training_loop = TrainingLoop(model, loss_fn, optimizer, acc_fn, device)

@@ -8,11 +8,16 @@ from logger import logger
 
 
 class FermiLATDataset(Dataset):
+    """ Dataset wrapper to load and log-normalize events.
+    """
+
     def __init__(self, proton_path: str | Path | None, electron_path: str | Path | None) -> None:
         """
-        Loads the compressed numpy chunks into memory and assings labels:
-        0 = Proton
-        1 = Electron
+        Loads the compressed numpy chunks and assings classification labels.
+
+        Labels:
+            0 = Proton
+            1 = Electron
         """
         x_list, y_list, top_list, meta_list, label_list = [], [], [], [], []
 
@@ -97,10 +102,18 @@ class FermiLATDataset(Dataset):
         return norm_tensor, label
 
 
-class ImportData:
-    def __init__(self, proton_path: str | Path | None, electron_path: str | Path | None) -> None:
-        self.dataset = FermiLATDataset(proton_path, electron_path)
+class FermiDataModule:
+    """ Manages training split and provides PyTorch DataLoaders.
+    """
 
+    def __init__(
+            self,
+            proton_path: str | Path | None,
+            electron_path: str | Path | None,
+            batch_size: int = 32
+    ) -> None:
+        self.dataset = FermiLATDataset(proton_path, electron_path)
+        self.batch_size = batch_size
         self.train_loader = None
         self.val_loader = None
 
@@ -117,9 +130,9 @@ class ImportData:
         
         # Create DataLoaders
         self.train_loader = DataLoader(train_dataset,
-                                       batch_size=32,
+                                       batch_size=self.batch_size,
                                        shuffle=True)
         self.val_loader = DataLoader(val_dataset,
-                                     batch_size=32,
+                                     batch_size=self.batch_size,
                                      shuffle=False)
         return self.train_loader, self.val_loader
