@@ -11,16 +11,22 @@ class TrainingLoop:
     def __init__(self,
                  model: torch.nn.Module,
                  loss_fn: torch.nn.Module,
+                 optimizer: torch.optim.Optimizer,
                  accuracy_fn: MulticlassAccuracy,
                  device: torch.device) -> None:
         """ Constructor.
         """
         self.model = model
         self.loss_fn = loss_fn
+        self.optimizer = optimizer
         self.accuracy_fn = accuracy_fn.to(device)
         self.device = device
 
-    def train_step(self, data_loader: torch.utils.data.DataLoader, optimizer: torch.optim.Optimizer) -> float:
+        self.train_losses = []
+        self.val_losses = []
+        self.learning_rates = []
+
+    def train_step(self, data_loader: torch.utils.data.DataLoader) -> float:
         """ Performs a training step with model trying to learn on data_loader.
         """
         train_loss, train_acc = 0, 0
@@ -37,14 +43,14 @@ class TrainingLoop:
             train_loss += loss
             train_acc = self.accuracy_fn(y_pred, y)
 
-            optimizer.zero_grad()
+            self.optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
+            self.optimizer.step()
 
         # Average training loss and accuracy
         train_loss /= len(data_loader)
         train_acc /= len(data_loader)
-        tqdm.write(f"Train loss: {train_loss:.5f} | Train acc: {train_acc:.2f}%")
+        logger.debug(f"Train loss: {train_loss:.5f} | Train acc: {train_acc:.2f}%")
 
         return train_loss
     
@@ -68,6 +74,22 @@ class TrainingLoop:
             # Adjust metrics and print out
             val_loss /= len(data_loader)
             val_acc /= len(data_loader)
-            tqdm.write(f"Validation loss: {val_loss:.5f} | Validation accuracy: {val_acc:.2f}%")
+            logger.debug(f"Validation loss: {val_loss:.5f} | Validation accuracy: {val_acc:.2f}%")
         
             return val_loss
+        
+    def run(self, epochs: int, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader) -> None:
+        """ Runs the whole training loop, iterating through the specified epochs.
+        """
+        logger.debug("------------ TRAINING LOOP ------------")
+        for epoch in tqdm(range(epochs), desc="Running Training Loop..."):
+            logger.debug(f"Epoch: {epoch}")
+            train_loss = self.train_step(train_loader)
+            val_loss = self.validation_step(val_loader)
+            current_lr = self.optimizer.param_groups[0]['lr']
+
+            self.train_losses.append(train_loss.detach().cpu())
+            self.val_losses.append(val_loss.cpu())
+            self.learning_rates.append(current_lr)
+
+        logger.info("Training Complete!")

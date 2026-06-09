@@ -2,7 +2,6 @@ import torch
 from torchinfo import summary
 from torchmetrics.classification import MulticlassAccuracy
 from pathlib import Path
-from tqdm.auto import tqdm
 
 from data import ImportData
 from model import FermiMultiBranchCNN
@@ -40,14 +39,27 @@ if __name__ == "__main__":
                                  weight_decay=1e-4)
     acc_fn = MulticlassAccuracy(num_classes=2)
 
-    training_loop = TrainingLoop(model, loss_fn, acc_fn, device)
+    training_loop = TrainingLoop(model, loss_fn, optimizer, acc_fn, device)
 
-    epochs = 3
+    epochs = 10
 
-    for epoch in tqdm(range(epochs)):
-        tqdm.write(f"\nEpoch: {epoch}\n------")
-        train_loss = training_loop.train_step(train_loader, optimizer)
+    training_loop.run(epochs, train_loader, val_loader)
 
-        val_loss = training_loop.validation_step(val_loader)
+    import matplotlib.pyplot as plt
+    import numpy as np
 
-    logger.info("\nTraining Complete!")
+    epoch_x = np.arange(0, epochs, 1)
+
+    train_losses = np.array(training_loop.train_losses)
+    val_losses = np.array(training_loop.val_losses)
+    learning_rates = np.array(training_loop.learning_rates)
+
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.title("Train and Validation Loss")
+    plt.plot(epoch_x, train_losses, label="Train Loss")
+    plt.plot(epoch_x, val_losses, label="Validation Loss")
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.title("Learning Rate")
+    plt.plot(epoch_x, learning_rates)
