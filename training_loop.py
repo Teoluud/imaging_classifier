@@ -8,23 +8,25 @@ from logger import logger
 class TrainingLoop:
     """ Class that handles the training loop.
     """
-    def __init__(self,
-                 model: torch.nn.Module,
-                 loss_fn: torch.nn.Module,
-                 optimizer: torch.optim.Optimizer,
-                 accuracy_fn: MulticlassAccuracy,
-                 device: torch.device) -> None:
-        """ Constructor.
-        """
+    def __init__(
+            self,
+            model: torch.nn.Module,
+            loss_fn: torch.nn.Module,
+            optimizer: torch.optim.Optimizer,
+            accuracy_fn: MulticlassAccuracy,
+            device: torch.device,
+            model_save_path: str = "best_fermi_model.pth"
+    ) -> None:
         self.model = model
         self.loss_fn = loss_fn
         self.optimizer = optimizer
         self.accuracy_fn = accuracy_fn.to(device)
         self.device = device
+        self.model_save_path = model_save_path
 
-        self.train_losses = []
-        self.val_losses = []
-        self.learning_rates = []
+        self.train_losses: list[float] = []
+        self.val_losses: list[float] = []
+        self.learning_rates: list[float] = []
 
     def train_step(self, data_loader: torch.utils.data.DataLoader) -> float:
         """ Performs a training step with model trying to learn on data_loader.
@@ -99,6 +101,6 @@ class TrainingLoop:
             # Save the model exactly when it hits a new peak performance
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                torch.save(self.model.state_dict(), 'best_fermi_model.pth')
+                torch.save(self.model.state_dict(), self.model_save_path)
 
         logger.info("Training Complete!")
