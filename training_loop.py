@@ -81,7 +81,7 @@ class TrainingLoop:
             return val_loss
         
     def run(self, epochs: int, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader) -> None:
-        """ Runs the whole training loop, iterating through the specified epochs.
+        """ Executes the full training sequence.
         """
         logger.debug("------------ TRAINING LOOP ------------")
 

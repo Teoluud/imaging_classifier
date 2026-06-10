@@ -1,5 +1,6 @@
 import torch
 from torchmetrics.classification import MulticlassAccuracy
+import argparse
 
 from config import Config
 from data import FermiDataModule
@@ -8,7 +9,7 @@ from training_loop import TrainingLoop
 from utils import plot_training_results
 
 
-def main() -> None:
+def main(args) -> None:
     # Initialize configurations
     config = Config()
 
@@ -42,26 +43,32 @@ def main() -> None:
     )
     acc_fn = MulticlassAccuracy(num_classes=2)
 
-    trainer = TrainingLoop(
-        model=model,
-        loss_fn=loss_fn,
-        optimizer=optimizer,
-        accuracy_fn=acc_fn,
-        device=device,
-        model_save_path=config.model_save_path
-    )
+    if args.train:
+        trainer = TrainingLoop(
+            model=model,
+            loss_fn=loss_fn,
+            optimizer=optimizer,
+            accuracy_fn=acc_fn,
+            device=device,
+            model_save_path=config.model_save_path
+        )
 
-    trainer.run(config.epochs, train_loader, val_loader)
+        trainer.run(config.epochs, train_loader, val_loader)
 
-    # Save evaluation metrics
-    plot_training_results(
-        epochs=config.epochs,
-        train_losses=trainer.train_losses,
-        val_losses=trainer.val_losses,
-        learning_rates=trainer.learning_rates,
-        save_path=config.plot_save_path
-    )
+        # Save evaluation metrics
+        plot_training_results(
+            epochs=config.epochs,
+            train_losses=trainer.train_losses,
+            val_losses=trainer.val_losses,
+            learning_rates=trainer.learning_rates,
+            save_path=config.plot_save_path
+        )
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description="Fermi-LAT electron/proton classifier.")
+    parser.add_argument("--train", action="store_true", help="Run the training loop on a newly instantiated model.")
+
+    args = parser.parse_args()
+
+    main(args)
