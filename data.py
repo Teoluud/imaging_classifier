@@ -136,3 +136,9 @@ class FermiDataModule:
                                      batch_size=self.batch_size,
                                      shuffle=False)
         return self.train_loader, self.val_loader
+    
+    def get_test_dataset(self, proton_path: str | Path | None, electron_path: str | Path | None) -> DataLoader:
+        """ Creates a DataLoader for evaluation on unseen datasets.
+        """
+        test_dataset = FermiLATDataset(proton_path, electron_path)
+        return DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)

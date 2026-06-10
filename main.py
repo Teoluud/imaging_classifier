@@ -6,7 +6,7 @@ from config import Config
 from data import FermiDataModule
 from model import FermiMultiBranchCNN
 from training_loop import TrainingLoop
-from utils import plot_training_results
+from utils import plot_training_results, plot_conf_matrix, plot_roc_curve
 from evaluator import Evaluator
 from logger import logger
 
@@ -82,7 +82,29 @@ def main(args) -> None:
         device=device
     )
 
+    test_loader = data_module.get_test_dataset(
+        proton_path=None,
+        electron_path=config.test_electron_path
+    )
+
     eval_metrics = evaluator.evaluate(data_loader=val_loader, split_name="Validation")
+
+    preds = eval_metrics["preds"]
+    truths = eval_metrics["truths"]
+    probs = eval_metrics["probs"]
+
+    # Calculate Recall
+    correct_electrons = (preds == truths).sum().item()
+    total_electrons = len(truths)
+    if total_electrons > 0:
+        electron_recall = (correct_electrons / total_electrons)
+        logger.info(f"Electron Recall: {electron_recall:.2%}")
+    else:
+        logger.warning(f"No electrons found in dataset to calculate recall.")
+
+    plot_conf_matrix(preds, truths, config.class_names, save_path=config.conf_matrix_save_path)
+    plot_roc_curve(probs, truths, save_path=config.roc_curve_save_path)
+    logger.debug(f"Exported evaluation metrics to {config.conf_matrix_save_path} and {config.roc_curve_save_path}")
 
 
 if __name__ == '__main__':
