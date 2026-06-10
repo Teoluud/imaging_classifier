@@ -23,7 +23,7 @@ class FermiLATDataset(Dataset):
 
         # Load protons
         if proton_path is not None:
-            logger.info(f"Loading Protons from {Path(proton_path).name}...")
+            logger.debug(f"Loading Protons from {Path(proton_path).name}...")
             with np.load(proton_path) as archive:
                 x_list.append(archive["view_x"])
                 y_list.append(archive["view_y"])
@@ -39,7 +39,7 @@ class FermiLATDataset(Dataset):
         
         # Load electrons
         if electron_path is not None:
-            logger.info(f"Loading Electrons from {Path(electron_path).name}...")
+            logger.debug(f"Loading Electrons from {Path(electron_path).name}...")
             with np.load(electron_path) as archive:
                 x_list.append(archive["view_x"])
                 y_list.append(archive["view_y"])
