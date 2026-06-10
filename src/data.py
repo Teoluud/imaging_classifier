@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from logger import logger
+from src.logger import logger
 
 
 class FermiLATDataset(Dataset):

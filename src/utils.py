@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -11,7 +13,7 @@ def plot_training_results(
         train_losses: list[float],
         val_losses: list[float],
         learning_rates: list[float],
-        save_path: str = "loss_curves.png"
+        save_path: str | Path = "loss_curves.png"
 ) -> None:
     """ Generates and saves optimization loss metrics.
     """
@@ -44,7 +46,7 @@ def plot_conf_matrix(
         preds: torch.Tensor,
         truths: torch.Tensor,
         class_names: tuple[str, ...],
-        save_path: str = "confusion_matrix.png"
+        save_path: str | Path = "confusion_matrix.png"
 ) -> None:
     """ Generates and saves a multiclass confusion matrix.
     """
@@ -64,7 +66,7 @@ def plot_conf_matrix(
 def plot_roc_curve(
         probs: torch.Tensor,
         truths: torch.Tensor,
-        save_path: str = "roc_curve.png"
+        save_path: str | Path = "roc_curve.png"
 ) -> None:
     """ Generates and saves a Binary ROC Curve, evaluating the positive class.
     """

@@ -13,10 +13,11 @@ class Config:
     electron_path: Path = data_dir / "dataset_chunk_allhee_no_norm.npz"
     test_electron_path: Path = data_dir / "dataset_chunk_electronSimo_no_norm.npz"
 
-    model_save_path: str = "best_fermi_model.pth"
-    plot_save_path: str = "loss_curves.png"
-    conf_matrix_save_path: str = "confusion_matrix.png"
-    roc_curve_save_path: str = "roc_curve.png"
+    output_dir = Path("outputs")
+    model_save_path: Path = output_dir / "models" / "best_fermi_model.pth"
+    plot_save_path: Path = output_dir/ "plots" / "loss_curves.png"
+    conf_matrix_save_path: Path = output_dir / "plots" / "confusion_matrix.png"
+    roc_curve_save_path: Path = output_dir / "plots" / "roc_curve.png"
 
     # Hyperparameters
     random_seed: int = 42

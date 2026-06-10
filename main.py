@@ -2,13 +2,13 @@ import torch
 from torchmetrics.classification import MulticlassAccuracy
 import argparse
 
-from config import Config
-from data import FermiDataModule
-from model import FermiMultiBranchCNN
-from training_loop import TrainingLoop
-from utils import plot_training_results, plot_conf_matrix, plot_roc_curve
-from evaluator import Evaluator
-from logger import logger
+from src.config import Config
+from src.data import FermiDataModule
+from src.model import FermiMultiBranchCNN
+from src.training_loop import TrainingLoop
+from src.utils import plot_training_results, plot_conf_matrix, plot_roc_curve
+from src.evaluator import Evaluator
+from src.logger import logger
 
 
 def main(args) -> None:

@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import torch
 from torchmetrics.classification import MulticlassAccuracy
 from tqdm.auto import tqdm
 
-from logger import logger
+from src.logger import logger
 
 
 class TrainingLoop:
@@ -15,7 +17,7 @@ class TrainingLoop:
             optimizer: torch.optim.Optimizer,
             accuracy_fn: MulticlassAccuracy,
             device: torch.device,
-            model_save_path: str = "best_fermi_model.pth"
+            model_save_path: str | Path = "best_fermi_model.pth"
     ) -> None:
         self.model = model
         self.loss_fn = loss_fn

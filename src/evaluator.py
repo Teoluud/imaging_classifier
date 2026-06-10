@@ -3,7 +3,7 @@ from torchmetrics.classification import MulticlassAccuracy
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from logger import logger
+from src.logger import logger
 
 
 class Evaluator:
