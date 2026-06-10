@@ -7,15 +7,21 @@ from data import FermiDataModule
 from model import FermiMultiBranchCNN
 from training_loop import TrainingLoop
 from utils import plot_training_results
+from evaluator import Evaluator
+from logger import logger
 
 
 def main(args) -> None:
+    # Setup logger
+    if args.verbose:
+        logger.setLevel("DEBUG")
+
     # Initialize configurations
     config = Config()
 
     # Setup device-agnostic code
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    print(f"Using device: {device}")
+    logger.debug(f"Using device: {device}")
 
     torch.manual_seed(config.random_seed)
     if torch.cuda.is_available():
@@ -64,9 +70,24 @@ def main(args) -> None:
             save_path=config.plot_save_path
         )
 
+    # Evaluation phase
+    # Load the saved model
+    logger.info(f"Loading best weights from {config.model_save_path} for evaluation...")
+    model.load_state_dict(torch.load(config.model_save_path, map_location=device, weights_only=True))
+
+    evaluator = Evaluator(
+        model=model,
+        loss_fn=loss_fn,
+        accuracy_fn=acc_fn,
+        device=device
+    )
+
+    eval_metrics = evaluator.evaluate(data_loader=val_loader, split_name="Validation")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fermi-LAT electron/proton classifier.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose option (set logger to debug mode).")
     parser.add_argument("--train", action="store_true", help="Run the training loop on a newly instantiated model.")
 
     args = parser.parse_args()
