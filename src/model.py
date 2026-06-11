@@ -8,7 +8,6 @@ class FermiMultiBranchCNN(nn.Module):
 
     def __init__(self) -> None:
         super().__init__()
-
         # Construct three identical independent layout structures
         self.branch_x = self._create_branch()
         self.branch_y = self._create_branch()
@@ -58,3 +57,24 @@ class FermiMultiBranchCNN(nn.Module):
         merged_features = torch.cat((out_x, out_y, out_top), dim=1)
         output = self.classifier(merged_features)
         return output
+
+
+class FermiMeritVarsNN(nn.Module):
+    """ Simple classifier for Merit Variables.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.linear_stack = nn.Sequential(
+            nn.Linear(in_features=17, out_features=10),
+            nn.ReLU(),
+            nn.Linear(in_features=10, out_features=8),
+            nn.ReLU(),
+            nn.Linear(in_features=8, out_features=2)
+
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.linear_stack(x)
+        

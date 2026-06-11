@@ -1,6 +1,6 @@
 from pathlib import Path
-import numpy as np
 
+import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
@@ -102,6 +102,63 @@ class FermiLATDataset(Dataset):
         return norm_tensor, label
 
 
+class FermiMeritDataset(Dataset):
+    """ Dataset wrapper for events merit variables.
+    """
+
+    def __init__(self, proton_path: str | Path | None, electron_path: str | Path | None) -> None:
+        """
+        Loads the compressed numpy chunks and assings classification labels.
+
+        Labels:
+            0 = Proton
+            1 = Electron
+        """
+        merit_vars, meta_list, label_list = [], [], []
+
+        # Load Protons
+        if proton_path is not None:
+            logger.debug(f"Loading Protons from {Path(proton_path).name}...")
+            with np.load(proton_path) as archive:
+                merit_vars.append(archive["merit_values"])
+
+                p_meta = archive["meta"]
+                meta_list.append(p_meta)
+                label_list.append(np.zeros(p_meta.shape[0], dtype=np.int64))
+        else:
+            logger.info("No Proton file selected...")
+        
+        if electron_path is not None:
+            logger.debug(f"Loading Electrons from {Path(electron_path).name}...")
+            with np.load(electron_path) as archive:
+                merit_vars.append(archive["merit_values"])
+
+                e_meta = archive["meta"]
+                meta_list.append(e_meta)
+                label_list.append(np.ones(e_meta.shape[0], dtype=np.int64))
+        else:
+            logger.info("No Electron file selected...")
+
+        # Safety check
+        if len(meta_list) == 0:
+            raise ValueError("Both paths cannot be None! Please provide at least one dataset.")
+
+        self.merit_vars = np.concatenate(merit_vars, axis=0)
+        self.meta = np.concatenate(meta_list, axis=0)
+        self.labels = np.concatenate(label_list, axis=0)
+
+        logger.info(f"Dataset ready: {len(self.labels)} total events loaded.")
+
+    def __len__(self):
+        return len(self.labels)
+    
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        merit_var = self.merit_vars[idx]
+        label = self.labels[idx]
+
+        return torch.from_numpy(merit_var).type(torch.float), torch.tensor(label, dtype=torch.long)
+        
+
 class FermiDataModule:
     """ Manages training split and provides PyTorch DataLoaders.
     """
@@ -110,9 +167,13 @@ class FermiDataModule:
             self,
             proton_path: str | Path | None,
             electron_path: str | Path | None,
-            batch_size: int = 32
+            batch_size: int = 32,
+            merit: bool = False
     ) -> None:
-        self.dataset = FermiLATDataset(proton_path, electron_path)
+        if merit:
+            self.dataset = FermiMeritDataset(proton_path, electron_path)
+        else:
+            self.dataset = FermiLATDataset(proton_path, electron_path)
         self.batch_size = batch_size
         self.train_loader = None
         self.val_loader = None
@@ -135,6 +196,12 @@ class FermiDataModule:
         self.val_loader = DataLoader(val_dataset,
                                      batch_size=self.batch_size,
                                      shuffle=False)
+        
+        for inputs, labels in self.train_loader:
+            logger.debug(f"Batch Inputs Shape: {inputs.shape}")
+            logger.debug(f"Batch Labels Shape: {labels.shape}")
+            logger.debug(f"Test: {inputs.shape}")
+            break # <- Test the first batch
         return self.train_loader, self.val_loader
     
     def get_test_dataset(self, proton_path: str | Path | None, electron_path: str | Path | None) -> DataLoader:

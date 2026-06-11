@@ -54,7 +54,7 @@ class TrainingLoop:
         # Average training loss and accuracy
         train_loss /= len(data_loader)
         train_acc /= len(data_loader)
-        logger.debug(f"Train loss: {train_loss:.5f} | Train acc: {train_acc:.2f}%")
+        logger.debug(f"Train loss: {train_loss:.5f} | Train acc: {train_acc:.2%}")
 
         return train_loss
     
@@ -78,7 +78,7 @@ class TrainingLoop:
             # Adjust metrics and print out
             val_loss /= len(data_loader)
             val_acc /= len(data_loader)
-            logger.debug(f"Validation loss: {val_loss:.5f} | Validation accuracy: {val_acc:.2f}%")
+            logger.debug(f"Validation loss: {val_loss:.5f} | Validation accuracy: {val_acc:.2%}")
         
             return val_loss
         
