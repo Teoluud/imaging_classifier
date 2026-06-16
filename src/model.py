@@ -57,7 +57,42 @@ class FermiMultiBranchCNN(nn.Module):
         merged_features = torch.cat((out_x, out_y, out_top), dim=1)
         output = self.classifier(merged_features)
         return output
+    
 
+class FermiSingleBranchCNN(nn.Module):
+    """ Single-branch classifier (conventional CNN).
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.convolutional_stack = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=3*8, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),  # 113 -> 56
+
+            nn.Conv2d(in_channels=3*8, out_channels=3*16, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),  # 56 -> 28
+
+            nn.Conv2d(in_channels=3*16, out_channels=3*32, kernel_size=3, padding=1, stride=2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),  # 28 -> 7
+
+            nn.Flatten()
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(in_features=3 * 32 * 7 * 7, out_features=128),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(in_features=128, out_features=32),
+            nn.ReLU(),
+            nn.Linear(in_features=32, out_features=2)  # 2 Outputs: [Proton Score, Electron Score]
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.classifier(self.convolutional_stack(x))
 
 class FermiMeritVarsNN(nn.Module):
     """ Simple classifier for Merit Variables.

@@ -13,14 +13,15 @@ def plot_training_results(
         train_losses: list[float],
         val_losses: list[float],
         learning_rates: list[float],
-        save_path: str | Path = "loss_curves.png"
+        save_path: str | Path = "loss_curves.png",
+        title: str = "Training Results"
 ) -> None:
     """ Generates and saves optimization loss metrics.
     """
     epoch_x = np.arange(0, epochs, 1)
 
     plt.figure(figsize=(12, 6))
-
+    plt.suptitle(title)
     # Loss curves subplot
     plt.subplot(1, 2, 1)
     plt.title("Train and Validation Loss")
@@ -46,7 +47,8 @@ def plot_conf_matrix(
         preds: torch.Tensor,
         truths: torch.Tensor,
         class_names: tuple[str, ...],
-        save_path: str | Path = "confusion_matrix.png"
+        save_path: str | Path = "confusion_matrix.png",
+        title: str = "Confusion Matrix"
 ) -> None:
     """ Generates and saves a multiclass confusion matrix.
     """
@@ -59,6 +61,7 @@ def plot_conf_matrix(
         figsize=(10, 7)
     )
 
+    plt.title(title)
     plt.savefig(save_path)
     plt.close()
 
@@ -66,7 +69,8 @@ def plot_conf_matrix(
 def plot_roc_curve(
         probs: torch.Tensor,
         truths: torch.Tensor,
-        save_path: str | Path = "roc_curve.png"
+        save_path: str | Path = "roc_curve.png",
+        title: str = "ROC Curve"
 ) -> None:
     """ Generates and saves a Binary ROC Curve, evaluating the positive class.
     """
@@ -75,5 +79,6 @@ def plot_roc_curve(
     roc.update(preds=probs[:, 1], target=truths)
 
     fig, ax = roc.plot(score=True)
+    plt.title(title)
     fig.savefig(save_path)
     plt.close()

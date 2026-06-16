@@ -4,7 +4,7 @@ import argparse
 
 from src.config import Config
 from src.data import FermiDataModule
-from src.model import FermiMultiBranchCNN, FermiMeritVarsNN
+from src.model import FermiMultiBranchCNN, FermiMeritVarsNN, FermiSingleBranchCNN
 from src.training_loop import TrainingLoop
 from src.utils import plot_training_results, plot_conf_matrix, plot_roc_curve
 from src.evaluator import Evaluator
@@ -39,7 +39,11 @@ def main(args) -> None:
     )
 
     # Define model
-    model = FermiMultiBranchCNN().to(device)
+    if args.single_branch:
+        model = FermiSingleBranchCNN().to(device)
+    else:
+        model = FermiMultiBranchCNN().to(device)
+    
     merit_model = FermiMeritVarsNN().to(device)
 
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -68,13 +72,14 @@ def main(args) -> None:
             train_losses=trainer.train_losses,
             val_losses=trainer.val_losses,
             learning_rates=trainer.learning_rates,
-            save_path=config.plot_save_path
+            save_path=config.plot_save_path,
+            title=f"Training Results: {model._get_name()}"
         )
     
     if args.merit:
         merit_optimizer = torch.optim.Adam(
             params=merit_model.parameters(),
-            lr=config.learning_rate,
+            lr=config.merit_learning_rate,
             weight_decay=0
         )
         merit_data_module = FermiDataModule(
@@ -137,7 +142,8 @@ def main(args) -> None:
         electron_path=config.test_electron_path
     )
 
-    eval_metrics = evaluator.evaluate(data_loader=test_loader, split_name="Test")
+    split_name = "Test"
+    eval_metrics = evaluator.evaluate(data_loader=test_loader, split_name=split_name)
 
     preds = eval_metrics["preds"]
     truths = eval_metrics["truths"]
@@ -148,11 +154,11 @@ def main(args) -> None:
     total_electrons = len(truths)
     if total_electrons > 0:
         electron_recall = (correct_electrons / total_electrons)
-        logger.info(f"Electron Recall: {electron_recall:.2%}")
+        logger.info(f"[{split_name}] Electron Recall: {electron_recall:.2%}")
     else:
         logger.warning(f"No electrons found in dataset to calculate recall.")
 
-    plot_conf_matrix(preds, truths, config.class_names, save_path=config.conf_matrix_save_path)
+    plot_conf_matrix(preds, truths, config.class_names, save_path=config.conf_matrix_save_path, title=f"Confusion Matrix: {model._get_name()}, {split_name} dataset.")
     # plot_roc_curve(probs, truths, save_path=config.roc_curve_save_path)
     logger.debug(f"Exported evaluation metrics to {config.conf_matrix_save_path} and {config.roc_curve_save_path}")
 
@@ -162,6 +168,7 @@ if __name__ == '__main__':
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose option (set logger to debug mode).")
     parser.add_argument("--train", action="store_true", help="Run the training loop on a newly instantiated model.")
     parser.add_argument("--merit", action="store_true", help="Run the whole pipeline for the Merit Variables network.")
+    parser.add_argument("--single-branch", action="store_true", help="Use the single-branch CNN model.")
 
     args = parser.parse_args()
 
