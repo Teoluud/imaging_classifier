@@ -204,8 +204,11 @@ class FermiDataModule:
             break # <- Test the first batch
         return self.train_loader, self.val_loader
     
-    def get_test_dataset(self, proton_path: str | Path | None, electron_path: str | Path | None) -> DataLoader:
+    def get_test_dataset(self, proton_path: str | Path | None, electron_path: str | Path | None, merit: bool=False) -> DataLoader:
         """ Creates a DataLoader for evaluation on unseen datasets.
         """
-        test_dataset = FermiLATDataset(proton_path, electron_path)
+        if merit:
+            test_dataset = FermiMeritDataset(proton_path, electron_path)
+        else:
+            test_dataset = FermiLATDataset(proton_path, electron_path)
         return DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)

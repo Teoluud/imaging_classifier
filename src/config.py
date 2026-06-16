@@ -11,10 +11,11 @@ class Config:
     data_dir: Path = Path("/data1/grosjacques/data")
     proton_path: Path = data_dir / "dataset_allpro.npz"
     electron_path: Path = data_dir / "dataset_allhee.npz"
-    test_electron_path: Path = data_dir / "dataset_chunk_electronSimo_no_norm.npz"
+    test_electron_path: Path = data_dir / "dataset_electronSimo.npz"
 
     output_dir = Path("outputs")
     model_save_path: Path = output_dir / "models" / "best_fermi_model.pth"
+    single_branch_model_save_path: Path = output_dir / "models" / "single_branch_model.pth"
     merit_model_save_path: Path = output_dir / "models" / "merit_vars_model.pth"
     plot_save_path: Path = output_dir/ "plots" / "loss_curves.png"
     merit_plot_save_path: Path = output_dir / "plots" / "merit_training_plots.png"
