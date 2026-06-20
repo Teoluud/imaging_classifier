@@ -2,7 +2,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset
+from sklearn.model_selection import train_test_split
 
 from src.logger import logger
 
@@ -181,13 +182,19 @@ class FermiDataModule:
     def train_split(self, split: float, random_state: int = 42) -> tuple[DataLoader, DataLoader]:
         """ Splits the data into train and validation DataLoaders.
         """
-        self.generator = torch.Generator().manual_seed(random_state)
+        indices = list(range(len(self.dataset)))
+        labels = self.dataset.labels
 
-        train_size = int(split * len(self.dataset))
-        val_size = len(self.dataset) - train_size
-        train_dataset, val_dataset = torch.utils.data.random_split(dataset=self.dataset,
-                                                                   lengths=[train_size, val_size],
-                                                                   generator=self.generator)
+        train_indices, val_indices, _, _ = train_test_split(
+            indices,
+            labels,
+            train_size=split,
+            stratify=labels,
+            random_state=random_state
+        )
+
+        train_dataset = Subset(self.dataset, train_indices)
+        val_dataset = Subset(self.dataset, val_indices)
         
         # Create DataLoaders
         self.train_loader = DataLoader(train_dataset,
