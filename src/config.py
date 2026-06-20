@@ -11,7 +11,8 @@ class Config:
     data_dir: Path = Path("/data1/grosjacques/data")
     proton_path: Path = data_dir / "dataset_allpro.npz"
     electron_path: Path = data_dir / "dataset_allhee.npz"
-    test_electron_path: Path = data_dir / "dataset_electronSimo.npz"
+    test_electron_path: Path | None = data_dir / "dataset_electron_800G.npz"
+    test_proton_path: Path | None = None # data_dir / "dataset_proton_100G.npz"
 
     output_dir = Path("outputs")
     model_save_path: Path = output_dir / "models" / "best_fermi_model.pth"

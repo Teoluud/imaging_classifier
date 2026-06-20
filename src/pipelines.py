@@ -78,7 +78,7 @@ class ImagingPipeline:
         )
 
         test_loader = data_module.get_test_dataset(
-            proton_path=None,
+            proton_path=self.config.test_proton_path,
             electron_path=self.config.test_electron_path
         )
 
@@ -138,24 +138,25 @@ class MeritPipeline:
         )
         acc_fn = MulticlassAccuracy(num_classes=2)
 
-        merit_trainer = TrainingLoop(
-            model=self.model,
-            loss_fn=loss_fn,
-            optimizer=merit_optimizer,
-            accuracy_fn=acc_fn,
-            device=self.device,
-            model_save_path=self.config.merit_model_save_path
-        )
+        if self.train:
+            merit_trainer = TrainingLoop(
+                model=self.model,
+                loss_fn=loss_fn,
+                optimizer=merit_optimizer,
+                accuracy_fn=acc_fn,
+                device=self.device,
+                model_save_path=self.config.merit_model_save_path
+            )
 
-        merit_trainer.run(self.config.epochs, merit_train_loader, merit_val_loader)
+            merit_trainer.run(self.config.epochs, merit_train_loader, merit_val_loader)
 
-        plot_training_results(
-            epochs=self.config.epochs,
-            train_losses=merit_trainer.train_losses,
-            val_losses=merit_trainer.val_losses,
-            learning_rates=merit_trainer.learning_rates,
-            save_path=self.config.merit_plot_save_path
-        )
+            plot_training_results(
+                epochs=self.config.epochs,
+                train_losses=merit_trainer.train_losses,
+                val_losses=merit_trainer.val_losses,
+                learning_rates=merit_trainer.learning_rates,
+                save_path=self.config.merit_plot_save_path
+            )
 
         merit_evaluator = Evaluator(
             model=self.model,
@@ -165,7 +166,7 @@ class MeritPipeline:
         )
 
         test_loader = merit_data_module.get_test_dataset(
-            proton_path=None,
+            proton_path=self.config.test_proton_path,
             electron_path=self.config.test_electron_path,
             merit=True
         )
