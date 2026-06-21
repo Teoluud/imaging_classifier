@@ -5,7 +5,7 @@ from torchmetrics.classification import MulticlassAccuracy
 
 from src.config import Config
 from src.logger import logger
-from src.data import FermiDataModule, FermiLATDataset, FermiMeritDataset
+from src.data import FermiDataModule
 from src.training_loop import TrainingLoop
 from src.utils import plot_training_results, plot_conf_matrix, plot_roc_curve
 from src.evaluator import Evaluator
@@ -19,7 +19,7 @@ class ImagingPipeline:
         self.config = config
         self.device = device
         self.train = train
-        self.save_path = save_path
+        self.save_path = Path(save_path)
 
     def run(self) -> None:
         logger.info("--- Initializing Imaging Pipeline ---")
@@ -67,7 +67,7 @@ class ImagingPipeline:
 
         # Evaluation phase
         # Load the saved model
-        logger.info(f"Loading best weights from {self.save_path} for evaluation...")
+        logger.info(f"Loading best weights from {self.save_path.name} for evaluation...")
         self.model.load_state_dict(torch.load(self.save_path, map_location=self.device, weights_only=True))
 
         evaluator = Evaluator(

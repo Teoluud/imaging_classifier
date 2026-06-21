@@ -104,5 +104,6 @@ class TrainingLoop:
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 torch.save(self.model.state_dict(), self.model_save_path)
+                logger.debug(f"Saved new best model: {self.model_save_path}")
 
         logger.info("Training Complete!")

@@ -14,7 +14,7 @@ class Config:
     test_electron_path: Path | None = data_dir / "dataset_electron_100G.npz"
     test_proton_path: Path | None = data_dir / "dataset_proton_100G.npz"
 
-    output_dir = Path("outputs")
+    output_dir = Path(__file__).resolve().parents[1] / "outputs"
     model_save_path: Path = output_dir / "models" / "best_fermi_model.pth"
     single_branch_model_save_path: Path = output_dir / "models" / "single_branch_model.pth"
     merit_model_save_path: Path = output_dir / "models" / "merit_vars_model.pth"
