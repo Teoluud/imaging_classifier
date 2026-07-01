@@ -7,13 +7,14 @@ class Config:
     """ Configuration settings for the classification pipeline.
     """
 
-    # Paths
+    # Data Paths
     data_dir: Path = Path("/data1/grosjacques/data")
     proton_path: Path = data_dir / "dataset_allpro.npz"
     electron_path: Path = data_dir / "dataset_allhee.npz"
     test_electron_path: Path | None = data_dir / "dataset_electron_100G.npz"
     test_proton_path: Path | None = data_dir / "dataset_proton_100G.npz"
 
+    # Output Paths
     output_dir = Path(__file__).resolve().parents[1] / "outputs"
     model_save_path: Path = output_dir / "models" / "best_fermi_model.pth"
     single_branch_model_save_path: Path = output_dir / "models" / "single_branch_model.pth"
@@ -30,7 +31,7 @@ class Config:
     learning_rate: float = 0.001
     merit_learning_rate: float = 0.01
     weight_decay: float = 1e-4
-    batch_size: int = 32
+    batch_size: int = 64
     train_split: float = 0.8
     epochs: int = 50
 

@@ -31,6 +31,8 @@ class Evaluator:
         y_probs, y_preds, y_truths = [], [], []
 
         self.model.eval()
+        self.accuracy_fn.reset()
+
         with torch.inference_mode():
             for X, y in data_loader:
                 # Put data to target device
@@ -41,7 +43,7 @@ class Evaluator:
                 preds = probs.argmax(dim=1)
 
                 eval_loss += self.loss_fn(logits, y).item()
-                eval_acc += self.accuracy_fn(logits, y).item()
+                self.accuracy_fn.update(logits, y)
 
                 # Store vectors for further metrics plotting
                 y_probs.append(probs.cpu())
@@ -49,7 +51,8 @@ class Evaluator:
                 y_truths.append(y.cpu())
 
         eval_loss /= len(data_loader)
-        eval_acc /= len(data_loader)
+        eval_acc = self.accuracy_fn.compute().item()
+        self.accuracy_fn.reset()
 
         logger.info(f"[{split_name} Results] Loss: {eval_loss:.5f} | Accuracy: {eval_acc:.2%}")
 

@@ -58,7 +58,8 @@ def plot_conf_matrix(
     fig, ax = plot_confusion_matrix(
         conf_mat=confmat_tensor.numpy(),
         class_names=class_names,
-        figsize=(10, 7)
+        figsize=(10, 7),
+        show_normed=True
     )
 
     plt.title(title)

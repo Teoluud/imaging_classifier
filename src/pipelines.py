@@ -41,7 +41,7 @@ class ImagingPipeline:
             lr=self.config.learning_rate,
             weight_decay=self.config.weight_decay
         )
-        acc_fn = MulticlassAccuracy(num_classes=2)
+        acc_fn = MulticlassAccuracy(num_classes=2, average="micro")
 
         if self.train:
             trainer = TrainingLoop(
@@ -101,7 +101,9 @@ class ImagingPipeline:
         plot_conf_matrix(preds, truths, self.config.class_names,
                          save_path=self.config.conf_matrix_save_path,
                          title=f"Confusion Matrix: {self.model._get_name()}, {split_name} dataset.")
-        # plot_roc_curve(probs, truths, save_path=config.roc_curve_save_path)
+        plot_roc_curve(probs, truths,
+                       save_path=self.config.roc_curve_save_path,
+                       title=f"ROC Curve: {self.model._get_name()}, {split_name} dataset.")
         logger.debug(f"Exported evaluation metrics to {self.config.conf_matrix_save_path} and {self.config.roc_curve_save_path}")
 
 
@@ -136,7 +138,7 @@ class MeritPipeline:
             lr=self.config.merit_learning_rate,
             weight_decay=0
         )
-        acc_fn = MulticlassAccuracy(num_classes=2)
+        acc_fn = MulticlassAccuracy(num_classes=2, average="micro")
 
         if self.train:
             merit_trainer = TrainingLoop(
@@ -155,9 +157,11 @@ class MeritPipeline:
                 train_losses=merit_trainer.train_losses,
                 val_losses=merit_trainer.val_losses,
                 learning_rates=merit_trainer.learning_rates,
-                save_path=self.config.merit_plot_save_path
+                save_path=self.config.merit_plot_save_path,
+                title=f"Training Results: {self.model._get_name()}"
             )
 
+        self.model.load_state_dict(torch.load(self.config.merit_model_save_path, map_location=self.device, weights_only=True))
         merit_evaluator = Evaluator(
             model=self.model,
             loss_fn=loss_fn,
@@ -181,4 +185,6 @@ class MeritPipeline:
         plot_conf_matrix(merit_test_preds, merit_test_truths, class_names=self.config.class_names,
                          save_path=self.config.merit_conf_matrix_save_path,
                          title=f"Confusion Matrix: {self.model._get_name()}, {split_name} dataset.")
-        plot_roc_curve(merit_test_probs, merit_test_truths, save_path=self.config.merit_roc_curve_save_path)
+        plot_roc_curve(merit_test_probs, merit_test_truths,
+                       save_path=self.config.merit_roc_curve_save_path,
+                       title=f"ROC Curve: {self.model._get_name()}, {split_name} dataset.")

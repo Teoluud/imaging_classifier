@@ -34,7 +34,9 @@ class TrainingLoop:
         """ Performs a training step with model trying to learn on data_loader.
         """
         train_loss, train_acc = 0, 0
+        self.accuracy_fn.reset()
         self.model.train()
+
         for X, y in data_loader:
             # Put data to target device
             X, y = X.to(self.device), y.to(self.device)
@@ -45,7 +47,7 @@ class TrainingLoop:
             # Calculate loss and accuracy (per batch)
             loss = self.loss_fn(y_pred, y)
             train_loss += loss.item()
-            train_acc += self.accuracy_fn(y_pred, y).item()
+            self.accuracy_fn.update(y_pred, y)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -53,7 +55,9 @@ class TrainingLoop:
 
         # Average training loss and accuracy
         train_loss /= len(data_loader)
-        train_acc /= len(data_loader)
+        train_acc = self.accuracy_fn.compute().item()
+        self.accuracy_fn.reset()
+
         logger.debug(f"Train loss: {train_loss:.5f} | Train acc: {train_acc:.2%}")
 
         return train_loss
@@ -62,8 +66,9 @@ class TrainingLoop:
         """ Performs a validation loop step on model going over data_loader.
         """
         val_loss, val_acc = 0, 0
-        
+        self.accuracy_fn.reset()
         self.model.eval()
+
         with torch.inference_mode():
             for X_val, y_val in data_loader:
                 # Send data to target device
@@ -73,11 +78,13 @@ class TrainingLoop:
 
                 # Calculate loss and accuracy (per batch)
                 val_loss += self.loss_fn(val_pred, y_val).item()
-                val_acc += self.accuracy_fn(val_pred, y_val).item()
+                self.accuracy_fn.update(val_pred, y_val)
 
             # Adjust metrics and print out
             val_loss /= len(data_loader)
-            val_acc /= len(data_loader)
+            val_acc = self.accuracy_fn.compute().item()
+            self.accuracy_fn.reset()
+
             logger.debug(f"Validation loss: {val_loss:.5f} | Validation accuracy: {val_acc:.2%}")
         
             return val_loss
