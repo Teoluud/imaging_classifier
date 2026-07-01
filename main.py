@@ -33,6 +33,7 @@ def setup_environment(config: Config, verbose: bool) -> torch.device:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fermi-LAT electron/proton classifier.")
     parser.add_argument("--merit", action="store_true", help="Use the merit variables model.")
+    parser.add_argument("--multi-branch", action="store_true", help="Use the multi-branch CNN model.")
     parser.add_argument("--single-branch", action="store_true", help="Use the single-branch CNN model.")
     parser.add_argument("--train", action="store_true", help="Run the training loop on a newly instantiated model.")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose option (set logger to debug mode).")
@@ -49,12 +50,13 @@ def main() -> None:
     if args.single_branch:
         model = FermiSingleBranchCNN()
         model_save_path = config.single_branch_model_save_path
-    else:
+        imaging_pipeline = ImagingPipeline(model=model, config=config, device=device, train=args.train, save_path=model_save_path)
+        imaging_pipeline.run()
+    if args.multi_branch:
         model = FermiMultiBranchCNN()
         model_save_path = config.model_save_path
-
-    imaging_pipeline = ImagingPipeline(model=model, config=config, device=device, train=args.train, save_path=model_save_path)
-    imaging_pipeline.run()
+        imaging_pipeline = ImagingPipeline(model=model, config=config, device=device, train=args.train, save_path=model_save_path)
+        imaging_pipeline.run()
 
     if args.merit:
         merit_model = FermiMeritVarsNN()

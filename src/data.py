@@ -144,14 +144,14 @@ class FermiMeritDataset(Dataset):
         if len(meta_list) == 0:
             raise ValueError("Both paths cannot be None! Please provide at least one dataset.")
 
-        raw_merit_vars = np.concatenate(merit_vars, axis=0)
+        self.raw_merit_vars = np.concatenate(merit_vars, axis=0)
 
         # Assign normalize variables using their Z-score
-        clean_merit_vars = np.nan_to_num(raw_merit_vars, nan=0.0, posinf=0.0, neginf=0.0)
-        means = clean_merit_vars.mean(axis=0, keepdims=True)
-        stds = clean_merit_vars.std(axis=0, keepdims=True)
-        stds[stds == 0] = 1.0
-        self.merit_vars = (clean_merit_vars - means) / stds
+        # clean_merit_vars = np.nan_to_num(raw_merit_vars, nan=0.0, posinf=0.0, neginf=0.0)
+        # means = clean_merit_vars.mean(axis=0, keepdims=True)
+        # stds = clean_merit_vars.std(axis=0, keepdims=True)
+        # stds[stds == 0] = 1.0
+        # self.merit_vars = (clean_merit_vars - means) / stds
 
         self.meta = np.concatenate(meta_list, axis=0)
         self.labels = np.concatenate(label_list, axis=0)
@@ -162,7 +162,8 @@ class FermiMeritDataset(Dataset):
         return len(self.labels)
     
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        merit_var = self.merit_vars[idx]
+        # merit_var = self.merit_vars[idx]
+        merit_var = self.raw_merit_vars[idx]
         label = self.labels[idx]
 
         return torch.from_numpy(merit_var).type(torch.float), torch.tensor(label, dtype=torch.long)
