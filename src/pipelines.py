@@ -169,12 +169,13 @@ class MeritPipeline:
             device=self.device
         )
 
+        merit_metrics = merit_evaluator.evaluate(data_loader=merit_val_loader, split_name="Merit Validation")
+        
         test_loader = merit_data_module.get_test_dataset(
             proton_path=self.config.test_proton_path,
             electron_path=self.config.test_electron_path,
             merit=True
         )
-        merit_metrics = merit_evaluator.evaluate(data_loader=merit_val_loader, split_name="Merit Validation")
 
         split_name = "Test"
         merit_test_metrics = merit_evaluator.evaluate(data_loader=test_loader, split_name=split_name)
