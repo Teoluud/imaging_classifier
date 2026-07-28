@@ -9,8 +9,8 @@ class Config:
 
     # Data Paths
     data_dir: Path = Path("/data1/grosjacques/data")
-    proton_path: Path = data_dir / "dataset_allpro.npz"
-    electron_path: Path = data_dir / "dataset_allhee.npz"
+    proton_path: Path = data_dir / "protons_30_200_GeV"
+    electron_path: Path = data_dir / "electrons_30_200_GeV"
     test_electron_path: Path | None = data_dir / "dataset_electron_100G.npz"
     test_proton_path: Path | None = data_dir / "dataset_proton_100G.npz"
 
@@ -33,6 +33,6 @@ class Config:
     weight_decay: float = 1e-4
     batch_size: int = 64
     train_split: float = 0.8
-    epochs: int = 50
+    epochs: int = 5
 
     class_names: tuple[str, str] = ("Proton", "Electron")

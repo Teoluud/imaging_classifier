@@ -1,7 +1,6 @@
 import torch
 from torchmetrics.classification import MulticlassAccuracy
 from torch.utils.data import DataLoader
-from tqdm.auto import tqdm
 
 from src.logger import logger
 

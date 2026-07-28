@@ -7,8 +7,9 @@ from src.config import Config
 from src.logger import logger
 from src.data import FermiDataModule
 from src.training_loop import TrainingLoop
-from src.utils import plot_training_results, plot_conf_matrix, plot_roc_curve
+from src.utils import build_file_list, plot_training_results, plot_conf_matrix, plot_roc_curve
 from src.evaluator import Evaluator
+
 
 class ImagingPipeline:
     """ Orchestrates the data loading, training, and evaluation for CNN models.
@@ -24,9 +25,12 @@ class ImagingPipeline:
     def run(self) -> None:
         logger.info("--- Initializing Imaging Pipeline ---")
 
+        proton_files = build_file_list(self.config.proton_path, "dataset_protons_000")
+        electron_files = build_file_list(self.config.electron_path, "dataset_electrons_000")
+
         data_module = FermiDataModule(
-            proton_path=self.config.proton_path,
-            electron_path=self.config.electron_path,
+            proton_files=proton_files,
+            electron_files=electron_files,
             batch_size=self.config.batch_size
         )
 
@@ -65,46 +69,46 @@ class ImagingPipeline:
                 title=f"Training Results: {self.model._get_name()}"
             )
 
-        # Evaluation phase
-        # Load the saved model
-        logger.info(f"Loading best weights from {self.save_path.name} for evaluation...")
-        self.model.load_state_dict(torch.load(self.save_path, map_location=self.device, weights_only=True))
+        # # Evaluation phase
+        # # Load the saved model
+        # logger.info(f"Loading best weights from {self.save_path.name} for evaluation...")
+        # self.model.load_state_dict(torch.load(self.save_path, map_location=self.device, weights_only=True))
 
-        evaluator = Evaluator(
-            model=self.model,
-            loss_fn=loss_fn,
-            accuracy_fn=acc_fn,
-            device=self.device
-        )
+        # evaluator = Evaluator(
+        #     model=self.model,
+        #     loss_fn=loss_fn,
+        #     accuracy_fn=acc_fn,
+        #     device=self.device
+        # )
 
-        test_loader = data_module.get_test_dataset(
-            proton_path=self.config.test_proton_path,
-            electron_path=self.config.test_electron_path
-        )
+        # test_loader = data_module.get_test_dataset(
+        #     proton_files=self.config.test_proton_path,
+        #     electron_files=self.config.test_electron_path
+        # )
 
-        split_name = "Test"
-        eval_metrics = evaluator.evaluate(data_loader=test_loader, split_name=split_name)
+        # split_name = "Test"
+        # eval_metrics = evaluator.evaluate(data_loader=test_loader, split_name=split_name)
 
-        preds = eval_metrics["preds"]
-        truths = eval_metrics["truths"]
-        probs = eval_metrics["probs"]
+        # preds = eval_metrics["preds"]
+        # truths = eval_metrics["truths"]
+        # probs = eval_metrics["probs"]
 
-        # Calculate Recall
-        correct_electrons = (preds == truths).sum().item()
-        total_electrons = len(truths)
-        if total_electrons > 0:
-            electron_recall = (correct_electrons / total_electrons)
-            logger.info(f"[{split_name}] Electron Recall: {electron_recall:.2%}")
-        else:
-            logger.warning(f"No electrons found in dataset to calculate recall.")
+        # # Calculate Recall
+        # correct_electrons = (preds == truths).sum().item()
+        # total_electrons = len(truths)
+        # if total_electrons > 0:
+        #     electron_recall = (correct_electrons / total_electrons)
+        #     logger.info(f"[{split_name}] Electron Recall: {electron_recall:.2%}")
+        # else:
+        #     logger.warning(f"No electrons found in dataset to calculate recall.")
 
-        plot_conf_matrix(preds, truths, self.config.class_names,
-                         save_path=self.config.conf_matrix_save_path,
-                         title=f"Confusion Matrix: {self.model._get_name()}, {split_name} dataset.")
-        plot_roc_curve(probs, truths,
-                       save_path=self.config.roc_curve_save_path,
-                       title=f"ROC Curve: {self.model._get_name()}, {split_name} dataset.")
-        logger.debug(f"Exported evaluation metrics to {self.config.conf_matrix_save_path} and {self.config.roc_curve_save_path}")
+        # plot_conf_matrix(preds, truths, self.config.class_names,
+        #                  save_path=self.config.conf_matrix_save_path,
+        #                  title=f"Confusion Matrix: {self.model._get_name()}, {split_name} dataset.")
+        # plot_roc_curve(probs, truths,
+        #                save_path=self.config.roc_curve_save_path,
+        #                title=f"ROC Curve: {self.model._get_name()}, {split_name} dataset.")
+        # logger.debug(f"Exported evaluation metrics to {self.config.conf_matrix_save_path} and {self.config.roc_curve_save_path}")
 
 
 class MeritPipeline:
@@ -122,8 +126,8 @@ class MeritPipeline:
         logger.info("--- Initializing Merit Variables Pipeline ---")
         
         merit_data_module = FermiDataModule(
-            proton_path=self.config.proton_path,
-            electron_path=self.config.electron_path,
+            proton_files=self.config.proton_path,
+            electron_files=self.config.electron_path,
             batch_size=self.config.batch_size,
             merit=True
         )
@@ -172,8 +176,8 @@ class MeritPipeline:
         merit_metrics = merit_evaluator.evaluate(data_loader=merit_val_loader, split_name="Merit Validation")
         
         test_loader = merit_data_module.get_test_dataset(
-            proton_path=self.config.test_proton_path,
-            electron_path=self.config.test_electron_path,
+            proton_files=self.config.test_proton_path,
+            electron_files=self.config.test_electron_path,
             merit=True
         )
 

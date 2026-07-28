@@ -8,6 +8,22 @@ from torchmetrics.classification import BinaryROC
 from mlxtend.plotting import plot_confusion_matrix
 
 
+def build_file_list(parent_path: Path | str, prefix: str) -> list[Path]:
+    """ Generates the data file list.
+    """
+    parent_dir = Path(parent_path)
+    file_names = []
+    idx = 0
+    while True:
+        path = parent_dir / (prefix + str(idx) + ".hdf5")
+        if not path.exists():
+            break
+        file_names.append(path)
+        idx += 1
+        
+    return file_names
+
+
 def plot_training_results(
         epochs: int,
         train_losses: list[float],
