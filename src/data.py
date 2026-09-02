@@ -1,12 +1,11 @@
 import bisect
 from pathlib import Path
-from typing import List, Callable
+from typing import List
 
 import numpy as np
 import torch
 import h5py
 from torch.utils.data import Dataset, DataLoader, Subset
-from sklearn.model_selection import train_test_split
 
 from src.logger import logger
 
@@ -17,11 +16,13 @@ class FermiLATDataset(Dataset):
     Uses memory mapping and binary search to avoid filling the RAM and CPU bottlenecks.
     """
 
-    def __init__(self, proton_files: List[Path], electron_files: List[Path]) -> None:
+    def __init__(self, file_path: str | Path) -> None:
         """ Constructor.
         """
-        self.proton_paths = [Path(p) for p in proton_files]
-        self.electron_paths = [Path(p) for p in electron_files]
+        path = Path(file_path)
+        assert(path.is_dir())
+        self.proton_files = sorted(path.glob('protons/*.hdf5'))
+        self.electron_files = sorted(path.glob('electrons'))
         self.file_ranges = []
         self.events_counter = 0
         # Store open file handles
@@ -37,10 +38,10 @@ class FermiLATDataset(Dataset):
     def _read_metadata(self) -> None:
         """ Parses chunk lenghts and assigns classification labels.
         """
-        for path in self.proton_paths:
+        for path in self.proton_files:
             self._register_chunk(path, label=0)
 
-        for path in self.electron_paths:
+        for path in self.electron_files:
             self._register_chunk(path, label=1)
 
     def _register_chunk(self, path: Path, label: int) -> None:
@@ -205,15 +206,14 @@ class FermiDataModule:
 
     def __init__(
             self,
-            proton_files: List[Path],
-            electron_files: List[Path],
+            file_path: str | Path,
             batch_size: int = 32,
             merit: bool = False
     ) -> None:
         if merit:
-            self.dataset = FermiMeritDataset(proton_files, electron_files)
+            self.dataset = FermiMeritDataset(file_path)
         else:
-            self.dataset = FermiLATDataset(proton_files, electron_files)
+            self.dataset = FermiLATDataset(file_path)
         self.batch_size = batch_size
         self.train_loader = None
         self.val_loader = None
@@ -226,7 +226,7 @@ class FermiDataModule:
         labels = self.dataset.labels
         # Isolate indices by particle type
         proton_idx = np.where(labels == 0)[0]
-        electron_idx = np.where(labels == 1)[0] # FIXED: was labels == 0
+        electron_idx = np.where(labels == 1)[0]
         
         np.random.shuffle(proton_idx)
         np.random.shuffle(electron_idx)
@@ -251,26 +251,19 @@ class FermiDataModule:
         self.val_loader = DataLoader(val_dataset,
                                      batch_size=self.batch_size,
                                      shuffle=False)
-        
-        #for inputs, labels in self.train_loader:
-        #    logger.debug(f"Batch Inputs Shape: {inputs.shape}")
-        #    logger.debug(f"Batch Labels Shape: {labels.shape}")
-        #    logger.debug(f"Test: {inputs.shape}")
-        #    break # Test the first batch
-            
+        logger.debug("TRAIN-TEST Split created.")
         return self.train_loader, self.val_loader
     
     def get_test_dataset(
         self,
-        proton_files: List[Path],
-        electron_files: List[Path],
+        file_path: str | Path,
         merit: bool = False
     ) -> DataLoader:
         """ Creates an optimized DataLoader for evaluation on unseen datasets. """
         if merit:
             test_dataset = FermiMeritDataset(proton_files, electron_files)
         else:
-            test_dataset = FermiLATDataset(proton_files, electron_files)
+            test_dataset = FermiLATDataset(file_path)
 
         return DataLoader(
             test_dataset,

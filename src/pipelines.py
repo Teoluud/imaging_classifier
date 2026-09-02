@@ -25,12 +25,8 @@ class ImagingPipeline:
     def run(self) -> None:
         logger.info("--- Initializing Imaging Pipeline ---")
 
-        proton_files = build_file_list(self.config.proton_path, "dataset_protons_000")
-        electron_files = build_file_list(self.config.electron_path, "dataset_electrons_000")
-
         data_module = FermiDataModule(
-            proton_files=proton_files,
-            electron_files=electron_files,
+            file_path=self.config.data_dir,
             batch_size=self.config.batch_size
         )
 
@@ -82,8 +78,7 @@ class ImagingPipeline:
         )
 
         test_loader = data_module.get_test_dataset(
-            proton_files=proton_files,
-            electron_files=electron_files
+            file_path=self.config.test_data_dir
         )
 
         split_name = "Test"
@@ -126,8 +121,7 @@ class MeritPipeline:
         logger.info("--- Initializing Merit Variables Pipeline ---")
         
         merit_data_module = FermiDataModule(
-            proton_files=self.config.proton_path,
-            electron_files=self.config.electron_path,
+            file_path=self.config.data_dir,
             batch_size=self.config.batch_size,
             merit=True
         )
@@ -176,8 +170,7 @@ class MeritPipeline:
         merit_metrics = merit_evaluator.evaluate(data_loader=merit_val_loader, split_name="Merit Validation")
         
         test_loader = merit_data_module.get_test_dataset(
-            proton_files=self.config.test_proton_path,
-            electron_files=self.config.test_electron_path,
+            file_path=self.config.test_data_dir,
             merit=True
         )
 
