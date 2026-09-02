@@ -1,3 +1,4 @@
+import bisect
 from pathlib import Path
 from typing import List, Callable
 
@@ -13,7 +14,7 @@ from src.logger import logger
 class FermiLATDataset(Dataset):
     """
     Dataset to load data from the .hdf5 files.
-    Uses memory mapping to avoid filling the RAM.
+    Uses memory mapping and binary search to avoid filling the RAM and CPU bottlenecks.
     """
 
     def __init__(self, proton_files: List[Path], electron_files: List[Path]) -> None:
@@ -25,7 +26,12 @@ class FermiLATDataset(Dataset):
         self.events_counter = 0
         # Store open file handles
         self.handles: dict[Path, h5py.File] = {}
+        
         self._read_metadata()
+        
+        # Create a flat list of starting indices for fast binary search
+        self.start_indices = [start_idx for _, start_idx, _, _ in self.file_ranges]
+        
         logger.info(f"Dataset ready: {len(self.labels)} total events loaded.")
 
     def _read_metadata(self) -> None:
@@ -56,7 +62,7 @@ class FermiLATDataset(Dataset):
         """ Returns an open HDF5 file handle, opening it if necessary.
         """
         if path not in self.handles:
-            self.handles[path] = h5py.File(path, "r")
+            self.handles[path] = h5py.File(path, "r", swmr=True)
         return self.handles[path]
 
     @property
@@ -71,19 +77,19 @@ class FermiLATDataset(Dataset):
         return self.events_counter
     
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        target_path = None
-        local_idx = -1
-        event_label = -1
-
-        for path, start_idx, num_events, label in self.file_ranges:
-            if start_idx <= idx < (start_idx + num_events):
-                target_path = path
-                local_idx = idx - start_idx
-                event_label = label
-                break
+        # Binary search instantly finds the correct chunk
+        file_idx = bisect.bisect_right(self.start_indices, idx) - 1
         
-        if target_path is None:
+        if file_idx < 0 or file_idx >= len(self.file_ranges):
             raise IndexError(f"Index {idx} out of bounds.")
+            
+        target_path, start_idx, num_events, event_label = self.file_ranges[file_idx]
+        
+        # Safety check to ensure the index is valid for this chunk
+        if not (start_idx <= idx < start_idx + num_events):
+            raise IndexError(f"Index {idx} out of bounds.")
+            
+        local_idx = idx - start_idx
 
         # Retrieve file handle
         f = self._get_handle(target_path)
@@ -94,6 +100,7 @@ class FermiLATDataset(Dataset):
         node_y = f["view_y"]
         node_top = f["view_top"]
         node_meta = f["meta"]
+        
         if (isinstance(node_x, h5py.Dataset) and 
             isinstance(node_y, h5py.Dataset) and 
             isinstance(node_top, h5py.Dataset) and 
@@ -132,102 +139,6 @@ class FermiLATDataset(Dataset):
                 handle.close()
             except Exception:
                 pass
-    
-        
-
-# class FermiLATDataset(Dataset):
-#     """ Dataset wrapper to load and log-normalize events.
-#     """
-
-#     def __init__(self, proton_path: str | Path | None, electron_path: str | Path | None) -> None:
-#         """
-#         Loads the compressed numpy chunks and assings classification labels.
-
-#         Labels:
-#             0 = Proton
-#             1 = Electron
-#         """
-#         x_list, y_list, top_list, meta_list, label_list = [], [], [], [], []
-
-#         # Load protons
-#         if proton_path is not None:
-#             logger.debug(f"Loading Protons from {Path(proton_path).name}...")
-#             with np.load(proton_path) as archive:
-#                 x_list.append(archive["view_x"])
-#                 y_list.append(archive["view_y"])
-#                 top_list.append(archive["view_top"])
-                
-#                 p_meta = archive["meta"]
-#                 meta_list.append(p_meta)
-
-#                 # Assign labels
-#                 label_list.append(np.zeros(p_meta.shape[0], dtype=np.int64))
-#         else:
-#             logger.info("No Proton file selected...")
-        
-#         # Load electrons
-#         if electron_path is not None:
-#             logger.debug(f"Loading Electrons from {Path(electron_path).name}...")
-#             with np.load(electron_path) as archive:
-#                 x_list.append(archive["view_x"])
-#                 y_list.append(archive["view_y"])
-#                 top_list.append(archive["view_top"])
-
-#                 e_meta = archive["meta"]
-#                 meta_list.append(e_meta)
-
-#                 label_list.append(np.ones(e_meta.shape[0], dtype=np.int64))
-#         else:
-#             logger.info("No Electron file selected...")
-
-#         # Safety check
-#         if len(meta_list) == 0:
-#             raise ValueError("Both paths cannot be None! Please provide at least one dataset.")
-        
-#         # Concatenate arrays along the batch dimension
-#         self.view_x = np.concatenate(x_list, axis=0)
-#         self.view_y = np.concatenate(y_list, axis=0)
-#         self.view_top = np.concatenate(top_list, axis=0)
-#         self.meta = np.concatenate(meta_list, axis=0)
-#         self.labels = np.concatenate(label_list, axis=0)
-
-#         logger.info(f"Dataset ready: {len(self.labels)} total events loaded.")
-
-#     def __len__(self):
-#         return len(self.labels)
-    
-#     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-#         # Get the raw matrices
-#         x = self.view_x[idx]
-#         y = self.view_y[idx]
-#         top = self.view_top[idx]
-
-#         # Stack into a 3 channel numpy array (Shape: 3, 113, 113)
-#         stacked_views = np.stack([x, y, top], axis=0)
-
-#         # Convert to PyTorch tensor
-#         tensor_data = torch.from_numpy(stacked_views).type(torch.float)
-
-#         # We need a masked version to avoid taking the log(0)
-#         # Create an output tensor initialized with 0.0
-#         norm_tensor = torch.zeros_like(tensor_data)
-#         # Create a boolean mask
-#         active_pixels = tensor_data > 0
-
-#         # Apply normalization to active pixels
-#         if active_pixels.any():
-#             # Convert active pixels to keV
-#             active_kev = tensor_data[active_pixels] * 1000.0
-#             # Get the event energy
-#             event_energy_kev = self.meta[idx, 2] * 1000.0 # <- meta[:, 2] is the reconstructed energy
-#             log_norm_factor = np.log10(max(event_energy_kev, 1.0)) # <- Avoid normalizing to negative values
-#             # Normalize and overlay to norm_tensor
-#             norm_tensor[active_pixels] = torch.log10(active_kev) / log_norm_factor
-        
-#         # Get label
-#         label = torch.tensor(self.labels[idx], dtype=torch.long)
-        
-#         return norm_tensor, label
 
 
 class FermiMeritDataset(Dataset):
@@ -273,13 +184,6 @@ class FermiMeritDataset(Dataset):
 
         self.raw_merit_vars = np.concatenate(merit_vars, axis=0)
 
-        # Assign normalize variables using their Z-score
-        # clean_merit_vars = np.nan_to_num(raw_merit_vars, nan=0.0, posinf=0.0, neginf=0.0)
-        # means = clean_merit_vars.mean(axis=0, keepdims=True)
-        # stds = clean_merit_vars.std(axis=0, keepdims=True)
-        # stds[stds == 0] = 1.0
-        # self.merit_vars = (clean_merit_vars - means) / stds
-
         self.meta = np.concatenate(meta_list, axis=0)
         self.labels = np.concatenate(label_list, axis=0)
 
@@ -289,7 +193,6 @@ class FermiMeritDataset(Dataset):
         return len(self.labels)
     
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        # merit_var = self.merit_vars[idx]
         merit_var = self.raw_merit_vars[idx]
         label = self.labels[idx]
 
@@ -323,9 +226,11 @@ class FermiDataModule:
         labels = self.dataset.labels
         # Isolate indices by particle type
         proton_idx = np.where(labels == 0)[0]
-        electron_idx = np.where(labels == 0)[0]
+        electron_idx = np.where(labels == 1)[0] # FIXED: was labels == 0
+        
         np.random.shuffle(proton_idx)
         np.random.shuffle(electron_idx)
+        
         # Calculate split limits
         p_split = int(len(proton_idx) * split)
         e_split = int(len(electron_idx) * split)
@@ -347,23 +252,30 @@ class FermiDataModule:
                                      batch_size=self.batch_size,
                                      shuffle=False)
         
-        for inputs, labels in self.train_loader:
-            logger.debug(f"Batch Inputs Shape: {inputs.shape}")
-            logger.debug(f"Batch Labels Shape: {labels.shape}")
-            logger.debug(f"Test: {inputs.shape}")
-            break # <- Test the first batch
+        #for inputs, labels in self.train_loader:
+        #    logger.debug(f"Batch Inputs Shape: {inputs.shape}")
+        #    logger.debug(f"Batch Labels Shape: {labels.shape}")
+        #    logger.debug(f"Test: {inputs.shape}")
+        #    break # Test the first batch
+            
         return self.train_loader, self.val_loader
     
     def get_test_dataset(
-            self,
-            proton_files: List[Path],
-            electron_files: List[Path],
-            merit: bool = False
+        self,
+        proton_files: List[Path],
+        electron_files: List[Path],
+        merit: bool = False
     ) -> DataLoader:
-        """ Creates a DataLoader for evaluation on unseen datasets.
-        """
+        """ Creates an optimized DataLoader for evaluation on unseen datasets. """
         if merit:
             test_dataset = FermiMeritDataset(proton_files, electron_files)
         else:
             test_dataset = FermiLATDataset(proton_files, electron_files)
-        return DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
+
+        return DataLoader(
+            test_dataset,
+            batch_size=self.batch_size * 2,  # Double batch size for inference
+            shuffle=False,
+            num_workers=8,                   # Parallelize HDF5 reads
+            pin_memory=True                  # Speed up CPU to GPU transfer
+        )

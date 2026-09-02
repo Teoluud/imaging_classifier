@@ -46,6 +46,9 @@ def main() -> None:
 
     config = Config()
     device = setup_environment(config, args.verbose)
+    
+    import multiprocessing
+    multiprocessing.set_start_method('spawn', force=True)
 
     if args.single_branch:
         model = FermiSingleBranchCNN()
