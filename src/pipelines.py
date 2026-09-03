@@ -7,7 +7,7 @@ from src.config import Config
 from src.logger import logger
 from src.data import FermiDataModule
 from src.training_loop import TrainingLoop
-from src.utils import build_file_list, plot_training_results, plot_conf_matrix, plot_roc_curve
+from src.utils import plot_training_results, plot_conf_matrix, plot_roc_curve
 from src.evaluator import Evaluator
 
 
@@ -133,7 +133,9 @@ class MeritPipeline:
         )
 
         merit_loaders = merit_data_module.train_split(
-            train_split=self.config.train_split, random_state=self.config.random_seed
+            train_split=self.config.train_split,
+            test_split=self.config.test_split,
+            random_state=self.config.random_seed
         )
         merit_train_loader = merit_loaders["train"]
         merit_val_loader = merit_loaders["val"]
@@ -175,14 +177,13 @@ class MeritPipeline:
             device=self.device
         )
 
-        merit_metrics = merit_evaluator.evaluate(data_loader=merit_val_loader, split_name="Merit Validation")
+        if self.config.test_split is not None:
+            test_loader = merit_loaders["test"]
+            split_name = "Test"
+        else:
+            test_loader = merit_val_loader
+            split_name = "Validation"
         
-        test_loader = merit_data_module.get_test_dataset(
-            file_path=self.config.test_data_dir,
-            merit=True
-        )
-
-        split_name = "Test"
         merit_test_metrics = merit_evaluator.evaluate(data_loader=test_loader, split_name=split_name)
 
         merit_test_preds = merit_test_metrics["preds"]

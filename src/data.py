@@ -1,5 +1,6 @@
 import bisect
 from pathlib import Path
+from typing import override, Callable, Any
 
 import numpy as np
 import torch
@@ -11,7 +12,7 @@ from src.logger import logger
 
 class FermiLATDataset(Dataset):
     """
-    Dataset to load data from the .hdf5 files.
+    Parent Dataset Class to load data from the .hdf5 files.
     Uses memory mapping and binary search to avoid filling the RAM and CPU bottlenecks.
     """
 
@@ -77,6 +78,39 @@ class FermiLATDataset(Dataset):
         return self.events_counter
     
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        raise NotImplementedError("This method has to be implemented in a subclass.")
+
+    def __del__(self) -> None:
+        """ Closes all file handles when dataset is destroyed.
+        """
+        for handle in self.handles.values():
+            try:
+                handle.close()
+            except Exception:
+                pass
+
+    def __getstate__(self) -> dict:
+        """
+        Prevents PyTorch multiprocessing pickling errors.
+        Strips the unpicklable open C-level file handles from the object state
+        before sending a copy of the dataset to the spawned child workers.
+        """
+        state = self.__dict__.copy()
+        # Wipe the handles dictionary for the child workers
+        state['handles'] = {}
+        return state
+
+
+class ImagingDataset(FermiLATDataset):
+    """ Dataset Class to load imaging data (event display images).
+    """
+
+    def __init__(self, file_path: str | Path, transform: Callable[[Any], torch.Tensor] | None = None) -> None:
+        super().__init__(file_path)
+        self.transform = transform
+
+    @override
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         # Binary search instantly finds the correct chunk
         file_idx = bisect.bisect_right(self.start_indices, idx) - 1
         
@@ -131,72 +165,48 @@ class FermiLATDataset(Dataset):
         
         return norm_tensor, label
 
-    def __del__(self) -> None:
-        """ Closes all file handles when dataset is destroyed.
-        """
-        for handle in self.handles.values():
-            try:
-                handle.close()
-            except Exception:
-                pass
 
-
-class FermiMeritDataset(Dataset):
-    """ Dataset wrapper for events merit variables.
+class MeritDataset(FermiLATDataset):
+    """ Dataset Class to load merit variables data.
     """
 
-    def __init__(self, proton_path: str | Path | None, electron_path: str | Path | None) -> None:
-        """
-        Loads the compressed numpy chunks and assings classification labels.
+    def __init__(self, file_path: str | Path, transform: Callable[[Any], torch.Tensor] | None = None) -> None:
+        super().__init__(file_path)
+        self.transform = transform
 
-        Labels:
-            0 = Proton
-            1 = Electron
-        """
-        merit_vars, meta_list, label_list = [], [], []
-
-        # Load Protons
-        if proton_path is not None:
-            logger.debug(f"Loading Protons from {Path(proton_path).name}...")
-            with np.load(proton_path) as archive:
-                merit_vars.append(archive["merit_values"])
-
-                p_meta = archive["meta"]
-                meta_list.append(p_meta)
-                label_list.append(np.zeros(p_meta.shape[0], dtype=np.int64))
-        else:
-            logger.info("No Proton file selected...")
-        
-        if electron_path is not None:
-            logger.debug(f"Loading Electrons from {Path(electron_path).name}...")
-            with np.load(electron_path) as archive:
-                merit_vars.append(archive["merit_values"])
-
-                e_meta = archive["meta"]
-                meta_list.append(e_meta)
-                label_list.append(np.ones(e_meta.shape[0], dtype=np.int64))
-        else:
-            logger.info("No Electron file selected...")
-
-        # Safety check
-        if len(meta_list) == 0:
-            raise ValueError("Both paths cannot be None! Please provide at least one dataset.")
-
-        self.raw_merit_vars = np.concatenate(merit_vars, axis=0)
-
-        self.meta = np.concatenate(meta_list, axis=0)
-        self.labels = np.concatenate(label_list, axis=0)
-
-        logger.info(f"Dataset ready: {len(self.labels)} total events loaded.")
-
-    def __len__(self):
-        return len(self.labels)
-    
+    @override
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        merit_var = self.raw_merit_vars[idx]
-        label = self.labels[idx]
+        # Search for the file idx
+        file_idx = bisect.bisect_right(self.start_indices, idx) - 1
 
-        return torch.from_numpy(merit_var).type(torch.float), torch.tensor(label, dtype=torch.long)
+        if file_idx < 0 or file_idx >= len(self.file_ranges):
+            raise IndexError(f"Index {idx} out of bounds.")
+
+        target_path, start_idx, num_events, event_label = self.file_ranges[file_idx]
+
+        # Safety check to ensure the index is valid for this chunk
+        if not (start_idx <= idx < start_idx + num_events):
+            raise IndexError(f"Index {idx} out of bounds.")
+
+        local_idx = idx - start_idx
+
+        # Retrieve file handle
+        f = self._get_handle(target_path)
+
+        # Extract data
+        node_var = f["merit_values"]
+        node_meta = f["meta"]
+
+        if isinstance(node_var, h5py.Dataset) and isinstance(node_meta, h5py.Dataset):
+            merit_var = node_var[local_idx]
+            event_meta = node_meta[local_idx]
+        else:
+            raise TypeError("Expected h5py.Dataset")
+
+        # Insert normalization here
+        #########
+
+        return torch.from_numpy(merit_var).type(torch.float), torch.tensor(event_label, dtype=torch.long)
         
 
 class FermiDataModule:
@@ -210,9 +220,9 @@ class FermiDataModule:
             merit: bool = False
     ) -> None:
         if merit:
-            self.dataset = FermiMeritDataset(file_path)
+            self.dataset = MeritDataset(file_path)
         else:
-            self.dataset = FermiLATDataset(file_path)
+            self.dataset = ImagingDataset(file_path)
         self.batch_size = batch_size
         self.loaders: dict[str, DataLoader] = {}
 
@@ -271,23 +281,3 @@ class FermiDataModule:
 
         logger.debug("TRAIN-TEST Split created.")
         return self.loaders
-
-    # DEPRECATED, WILL REMOVE WHEN MERIT IS UPDATED
-    def get_test_dataset(
-        self,
-        file_path: str | Path,
-        merit: bool = False
-    ) -> DataLoader:
-        """ (DEPRECATED) Creates an optimized DataLoader for evaluation on unseen datasets. """
-        if merit:
-            test_dataset = FermiMeritDataset(proton_files, electron_files)
-        else:
-            test_dataset = FermiLATDataset(file_path)
-
-        return DataLoader(
-            test_dataset,
-            batch_size=self.batch_size * 2,  # Double batch size for inference
-            shuffle=False,
-            num_workers=8,                   # Parallelize HDF5 reads
-            pin_memory=True                  # Speed up CPU to GPU transfer
-        )
