@@ -30,10 +30,14 @@ class ImagingPipeline:
             batch_size=self.config.batch_size
         )
 
-        train_loader, val_loader = data_module.train_split(
-            split=self.config.train_split,
+        loaders = data_module.train_split(
+            train_split=self.config.train_split,
+            test_split=self.config.test_split,
             random_state=self.config.random_seed
         )
+
+        train_loader = loaders["train"]
+        val_loader = loaders["val"]
 
         loss_fn = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(
@@ -77,11 +81,13 @@ class ImagingPipeline:
             device=self.device
         )
 
-        test_loader = data_module.get_test_dataset(
-            file_path=self.config.test_data_dir
-        )
+        if self.config.test_split is not None:
+            test_loader = loaders["test"]
+            split_name = "Test"
+        else:
+            test_loader = val_loader
+            split_name = "Validation"
 
-        split_name = "Test"
         eval_metrics = evaluator.evaluate(data_loader=test_loader, split_name=split_name)
 
         preds = eval_metrics["preds"]
@@ -126,9 +132,11 @@ class MeritPipeline:
             merit=True
         )
 
-        merit_train_loader, merit_val_loader = merit_data_module.train_split(
-            split=self.config.train_split, random_state=self.config.random_seed
+        merit_loaders = merit_data_module.train_split(
+            train_split=self.config.train_split, random_state=self.config.random_seed
         )
+        merit_train_loader = merit_loaders["train"]
+        merit_val_loader = merit_loaders["val"]
 
         loss_fn = torch.nn.CrossEntropyLoss()
         merit_optimizer = torch.optim.Adam(

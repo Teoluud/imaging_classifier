@@ -1,6 +1,5 @@
 import bisect
 from pathlib import Path
-from typing import List
 
 import numpy as np
 import torch
@@ -22,7 +21,7 @@ class FermiLATDataset(Dataset):
         path = Path(file_path)
         assert(path.is_dir())
         self.proton_files = sorted(path.glob('protons/*.hdf5'))
-        self.electron_files = sorted(path.glob('electrons'))
+        self.electron_files = sorted(path.glob('electrons/*.hdf5'))
         self.file_ranges = []
         self.events_counter = 0
         # Store open file handles
@@ -215,10 +214,11 @@ class FermiDataModule:
         else:
             self.dataset = FermiLATDataset(file_path)
         self.batch_size = batch_size
-        self.train_loader = None
-        self.val_loader = None
+        self.loaders: dict[str, DataLoader] = {}
 
-    def train_split(self, split: float, random_state: int = 42) -> tuple[DataLoader, DataLoader]:
+    def train_split(
+        self, train_split: float, test_split: float | None = None, random_state: int = 42
+    ) -> dict[str, DataLoader]:
         """ Splits the data into train and validation DataLoaders.
         """
         np.random.seed(random_state)
@@ -231,35 +231,54 @@ class FermiDataModule:
         np.random.shuffle(proton_idx)
         np.random.shuffle(electron_idx)
         
-        # Calculate split limits
-        p_split = int(len(proton_idx) * split)
-        e_split = int(len(electron_idx) * split)
-
-        train_indices = np.concatenate((proton_idx[:p_split], electron_idx[:e_split]))
-        val_indices = np.concatenate((proton_idx[p_split:], electron_idx[e_split:]))
-
+        # TRAIN SPLIT
+        p_train_split = int(len(proton_idx) * train_split)
+        e_train_split = int(len(electron_idx) * train_split)
+        train_indices = np.concatenate((proton_idx[:p_train_split], electron_idx[:e_train_split]))
         np.random.shuffle(train_indices)
-        np.random.shuffle(val_indices)
-
         train_dataset = Subset(self.dataset, train_indices.tolist())
-        val_dataset = Subset(self.dataset, val_indices.tolist())
-        
         # Create DataLoaders
-        self.train_loader = DataLoader(train_dataset,
+        train_loader = DataLoader(train_dataset,
                                        batch_size=self.batch_size,
                                        shuffle=True)
-        self.val_loader = DataLoader(val_dataset,
+        self.loaders["train"] = train_loader
+
+        # VALIDATION AND OPTIONAL TEST SPLIT
+        if test_split is not None:
+            p_test_split = int(len(proton_idx) * (train_split + test_split))
+            e_test_split = int(len(electron_idx) * (train_split + test_split))
+            test_indices = np.concatenate((proton_idx[p_test_split:], electron_idx[e_test_split:]))
+            np.random.shuffle(test_indices)
+            test_dataset = Subset(self.dataset, test_indices.tolist())
+            test_loader = DataLoader(test_dataset,
+                                          batch_size=self.batch_size,
+                                          shuffle=False,
+                                          num_workers=8,    # Parallelize HDF5 reads
+                                          pin_memory=True)  # Speed up CPU to GPU transfer
+            self.loaders["test"] = test_loader
+            
+            val_indices = np.concatenate((proton_idx[p_train_split:p_test_split], electron_idx[e_train_split:e_test_split]))
+
+        else:
+            val_indices = np.concatenate((proton_idx[p_train_split:], electron_idx[e_train_split:]))
+
+        np.random.shuffle(val_indices)
+        val_dataset = Subset(self.dataset, val_indices.tolist())
+        val_loader = DataLoader(val_dataset,
                                      batch_size=self.batch_size,
                                      shuffle=False)
+        self.loaders["val"] = val_loader
+
         logger.debug("TRAIN-TEST Split created.")
-        return self.train_loader, self.val_loader
-    
+        return self.loaders
+
+    # DEPRECATED, WILL REMOVE WHEN MERIT IS UPDATED
     def get_test_dataset(
         self,
         file_path: str | Path,
         merit: bool = False
     ) -> DataLoader:
-        """ Creates an optimized DataLoader for evaluation on unseen datasets. """
+        """ (DEPRECATED) Creates an optimized DataLoader for evaluation on unseen datasets. """
         if merit:
             test_dataset = FermiMeritDataset(proton_files, electron_files)
         else:

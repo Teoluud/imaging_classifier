@@ -30,6 +30,7 @@ class Config:
     weight_decay: float = 1e-4
     batch_size: int = 64
     train_split: float = 0.8
-    epochs: int = 5
+    test_split: float | None = 0.10
+    epochs: int = 3
 
     class_names: tuple[str, str] = ("Proton", "Electron")
