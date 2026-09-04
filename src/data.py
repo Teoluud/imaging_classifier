@@ -1,12 +1,13 @@
 import bisect
 from pathlib import Path
-from typing import override, Callable, Any
+from typing import override, Callable
 
 import numpy as np
 import torch
 import h5py
 from torch.utils.data import Dataset, DataLoader, Subset
 
+from src.utils import normalize_image, normalize_merit
 from src.logger import logger
 
 
@@ -105,7 +106,7 @@ class ImagingDataset(FermiLATDataset):
     """ Dataset Class to load imaging data (event display images).
     """
 
-    def __init__(self, file_path: str | Path, transform: Callable[[Any], torch.Tensor] | None = None) -> None:
+    def __init__(self, file_path: str | Path, transform: Callable[..., torch.Tensor] | None = None) -> None:
         super().__init__(file_path)
         self.transform = transform
 
@@ -150,27 +151,20 @@ class ImagingDataset(FermiLATDataset):
         stacked_views = np.stack([x, y, top], axis=0)
         tensor_data = torch.from_numpy(stacked_views).type(torch.float)
 
-        # Log-normalization
-        norm_tensor = torch.zeros_like(tensor_data)
-        active_pixels = tensor_data > 0
-
-        if active_pixels.any():
-            active_kev = tensor_data[active_pixels] * 1000.0
-            event_energy_kev = event_meta[2] * 1000.0
-            log_norm_factor = np.log10(max(event_energy_kev, 1.0))
-            norm_tensor[active_pixels] = torch.log10(active_kev) / log_norm_factor
+        if self.transform is not None:
+            tensor_data = self.transform(tensor_data, event_meta[2])
         
         # Get label
         label = torch.tensor(event_label, dtype=torch.long)
         
-        return norm_tensor, label
+        return tensor_data, label
 
 
 class MeritDataset(FermiLATDataset):
     """ Dataset Class to load merit variables data.
     """
 
-    def __init__(self, file_path: str | Path, transform: Callable[[Any], torch.Tensor] | None = None) -> None:
+    def __init__(self, file_path: str | Path, transform: Callable[..., torch.Tensor] | None = None) -> None:
         super().__init__(file_path)
         self.transform = transform
 
@@ -202,11 +196,12 @@ class MeritDataset(FermiLATDataset):
             event_meta = node_meta[local_idx]
         else:
             raise TypeError("Expected h5py.Dataset")
+        merit_var = torch.from_numpy(merit_var).type(torch.float)
 
-        # Insert normalization here
-        #########
+        if self.transform is not None:
+            merit_var = self.transform(merit_var)
 
-        return torch.from_numpy(merit_var).type(torch.float), torch.tensor(event_label, dtype=torch.long)
+        return merit_var, torch.tensor(event_label, dtype=torch.long)
         
 
 class FermiDataModule:
@@ -220,9 +215,9 @@ class FermiDataModule:
             merit: bool = False
     ) -> None:
         if merit:
-            self.dataset = MeritDataset(file_path)
+            self.dataset = MeritDataset(file_path, transform=normalize_merit)
         else:
-            self.dataset = ImagingDataset(file_path)
+            self.dataset = ImagingDataset(file_path, transform=normalize_image)
         self.batch_size = batch_size
         self.loaders: dict[str, DataLoader] = {}
 
