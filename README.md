@@ -42,9 +42,6 @@ conda install torch torchvision numpy h5py scikit-learn torchmetrics mlxtend
 ### 2. Training the Model
 Execute the main script to initialize the `FermiDataModule`, load the CNN and begin the training loop.
 ```bash
-python main.py --help
-```
-```bash
 usage: main.py [-h] (--merit | --multi-branch | --single-branch) [--train] [--epochs EPOCHS] [-v]
 
 Fermi-LAT electron/proton classifier.
