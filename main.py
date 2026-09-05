@@ -32,20 +32,32 @@ def setup_environment(config: Config, verbose: bool) -> torch.device:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fermi-LAT electron/proton classifier.")
-    parser.add_argument("--merit", action="store_true", help="use the merit variables model")
-    parser.add_argument("--multi-branch", action="store_true", help="use the multi-branch CNN model")
-    parser.add_argument("--single-branch", action="store_true", help="use the single-branch CNN model")
+    model_choice = parser.add_mutually_exclusive_group(required=True)
+    model_choice.add_argument("--merit", action="store_true", help="use the merit variables model")
+    model_choice.add_argument("--multi-branch", action="store_true", help="use the multi-branch CNN model")
+    model_choice.add_argument("--single-branch", action="store_true", help="use the single-branch CNN model")
     parser.add_argument("--train", action="store_true", help="run the training loop on a newly instantiated model")
     parser.add_argument("--epochs", type=int, default=None, help="override the config epochs. If set to None (default), it will use the value set in config.py")
     parser.add_argument("-v", "--verbose", action="store_true", help="verbose option (set logger to debug mode)")
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
-    from src.config import Config
+    from src.config import MultiBranchConfig, SingleBranchConfig, MeritConfig
     from src.model import FermiMultiBranchCNN, FermiSingleBranchCNN, FermiMeritVarsNN
-    from src.pipelines import ImagingPipeline, MeritPipeline
+    from src.pipelines import ClassifierPipeline
 
-    config = Config()
+    if args.multi_branch:
+        model = FermiMultiBranchCNN()
+        config = MultiBranchConfig()
+    elif args.single_branch:
+        model = FermiSingleBranchCNN()
+        config = SingleBranchConfig()
+    elif args.merit:
+        model = FermiMeritVarsNN()
+        config=MeritConfig()
+    else:
+        raise RuntimeError
+    
     device = setup_environment(config, args.verbose)
 
     if args.epochs is not None:
@@ -54,21 +66,8 @@ def main() -> None:
     import multiprocessing
     multiprocessing.set_start_method('spawn', force=True)
 
-    if args.single_branch:
-        model = FermiSingleBranchCNN()
-        model_save_path = config.single_branch_model_save_path
-        imaging_pipeline = ImagingPipeline(model=model, config=config, device=device, train=args.train, save_path=model_save_path)
-        imaging_pipeline.run()
-    if args.multi_branch:
-        model = FermiMultiBranchCNN()
-        model_save_path = config.model_save_path
-        imaging_pipeline = ImagingPipeline(model=model, config=config, device=device, train=args.train, save_path=model_save_path)
-        imaging_pipeline.run()
-
-    if args.merit:
-        merit_model = FermiMeritVarsNN()
-        merit_pipeline = MeritPipeline(model=merit_model, config=config, device=device, train=args.train)
-        merit_pipeline.run()
+    pipeline = ClassifierPipeline(model, config, device, args.train, args.merit)
+    pipeline.run()
 
 
 if __name__ == '__main__':
