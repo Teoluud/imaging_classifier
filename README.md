@@ -42,18 +42,18 @@ conda install torch torchvision numpy h5py scikit-learn torchmetrics mlxtend
 ### 2. Training the Model
 Execute the main script to initialize the `FermiDataModule`, load the CNN and begin the training loop.
 ```bash
-python main.py --help
-```
-```bash
+usage: main.py [-h] (--merit | --multi-branch | --single-branch) [--train] [--epochs EPOCHS] [-v]
+
 Fermi-LAT electron/proton classifier.
 
 options:
   -h, --help       show this help message and exit
-  --merit          Use the merit variables model.
-  --multi-branch   Use the multi-branch CNN model.
-  --single-branch  Use the single-branch CNN model.
-  --train          Run the training loop on a newly instantiated model.
-  -v, --verbose    Verbose option (set logger to debug mode).
+  --merit          use the merit variables model
+  --multi-branch   use the multi-branch CNN model
+  --single-branch  use the single-branch CNN model
+  --train          run the training loop on a newly instantiated model
+  --epochs EPOCHS  override the config epochs. If set to None (default), it will use the value set in config.py
+  -v, --verbose    verbose option (set logger to debug mode)
 ```
 The code always runs the evaluation on the given test dataset, using the model saved in `outputs/models/`. If you don't have one or you want to train a new one you need to use the option `--train`.
 
