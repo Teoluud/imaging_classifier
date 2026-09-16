@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 from torchmetrics.classification import MulticlassAccuracy
 from torch.utils.data import DataLoader
@@ -21,23 +23,25 @@ class Evaluator:
         self.accuracy_fn = accuracy_fn.to(device)
         self.device = device
 
-    def evaluate(self, data_loader: DataLoader, split_name: str = "Test") -> dict:
+    def evaluate(self, data_loader: DataLoader[Any], split_name: str = "Test") -> dict[str, Any]:
         """ Runs a full forward pass over the data_loader and computes evaluation metrics.
         """
         logger.debug(f"Starting evaluation on {split_name} set...")
 
-        eval_loss, eval_acc = 0, 0
-        y_probs, y_preds, y_truths = [], [], []
+        eval_loss, eval_acc = 0., 0.
+        y_probs: list[torch.Tensor] = []
+        y_preds: list[torch.Tensor] = []
+        y_truths: list[torch.Tensor] = []
 
         self.model.eval()
         self.accuracy_fn.reset()
 
         with torch.inference_mode():
-            for X, y in data_loader:
+            for x, y in data_loader:
                 # Put data to target device
-                X, y = X.to(self.device), y.to(self.device)
+                x, y = x.to(self.device), y.to(self.device)
 
-                logits = self.model(X)
+                logits = self.model(x)
                 probs = torch.softmax(logits, dim=1)
                 preds = probs.argmax(dim=1)
 

@@ -1,6 +1,8 @@
 from pathlib import Path
+from typing import Any
 
 import torch
+from torch.utils.data import DataLoader
 from torchmetrics.classification import MulticlassAccuracy
 from tqdm.auto import tqdm
 
@@ -30,19 +32,19 @@ class TrainingLoop:
         self.val_losses: list[float] = []
         self.learning_rates: list[float] = []
 
-    def train_step(self, data_loader: torch.utils.data.DataLoader) -> float:
+    def train_step(self, data_loader: DataLoader[Any]) -> float:
         """ Performs a training step with model trying to learn on data_loader.
         """
         train_loss, train_acc = 0, 0
         self.accuracy_fn.reset()
         self.model.train()
 
-        for X, y in data_loader:
+        for x, y in data_loader:
             # Put data to target device
-            X, y = X.to(self.device), y.to(self.device)
+            x, y = x.to(self.device), y.to(self.device)
 
             # Forward pass
-            y_pred = self.model(X)
+            y_pred = self.model(x)
 
             # Calculate loss and accuracy (per batch)
             loss = self.loss_fn(y_pred, y)
@@ -62,7 +64,7 @@ class TrainingLoop:
 
         return train_loss
     
-    def validation_step(self, data_loader: torch.utils.data.DataLoader) -> float:
+    def validation_step(self, data_loader: DataLoader[Any]) -> float:
         """ Performs a validation loop step on model going over data_loader.
         """
         val_loss, val_acc = 0, 0
@@ -89,7 +91,7 @@ class TrainingLoop:
         
             return val_loss
         
-    def run(self, epochs: int, train_loader: torch.utils.data.DataLoader, val_loader: torch.utils.data.DataLoader) -> None:
+    def run(self, epochs: int, train_loader: torch.utils.data.DataLoader[Any], val_loader: DataLoader[Any]) -> None:
         """ Executes the full training sequence.
         """
         logger.debug("------------ TRAINING LOOP ------------")

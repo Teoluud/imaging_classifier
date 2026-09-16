@@ -23,13 +23,31 @@ class Config:
 
     # Output Path
     output_dir = Path(__file__).resolve().parents[1] / "outputs"
-    # Output save paths (override in specific settings)
     model_save_path: Path
-    plots_dir: Path
-    loss_plot_save_path: Path
-    conf_matrix_save_path: Path
-    roc_curve_save_path: Path
+    plots_dir: Path = output_dir / "plots"
 
+    def _plot_path(self, filename: str) -> Path:
+        return self.plots_dir / filename
+
+    @property
+    def loss_plot_save_path(self) -> Path:
+        return self._plot_path("loss_curves.png")
+
+    @property
+    def conf_matrix_save_path(self) -> Path:
+        return self._plot_path("confusion_matrix.png")
+
+    @property
+    def roc_curve_save_path(self) -> Path:
+        return self._plot_path("roc_curve.png")
+
+    @property
+    def probs_distribution_save_path(self) -> Path:
+        return self._plot_path("probs_distribution.png")
+
+    @property
+    def error_energy_distribution_save_path(self) -> Path:
+        return self._plot_path("error_energy_distribution.png")
 
     # Hyperparameters
     random_seed: int = 42
@@ -38,7 +56,7 @@ class Config:
     batch_size: int = 64
     train_split: float = 0.8
     test_split: float | None = 0.10
-    epochs: int = 10
+    epochs: int = 2
 
     loss_fn: torch.nn.Module = torch.nn.CrossEntropyLoss()
     accuracy_fn: MulticlassAccuracy = MulticlassAccuracy(num_classes=2, average="micro")
@@ -49,12 +67,7 @@ class MultiBranchConfig(Config):
     """ Configuration settings specific to multibranch CNN model.
     """
     model_save_path: Path = Config.output_dir / "models" / "multi_branch_model.pth"
-
-    # Plots output
     plots_dir: Path = Config.output_dir / "plots" / "multibranch"
-    loss_plot_save_path: Path = plots_dir / "loss_curves.png"
-    conf_matrix_save_path: Path = plots_dir / "confusion_matrix.png"
-    roc_curve_save_path: Path = plots_dir / "roc_curve.png"
 
 
 @dataclass(kw_only=True)
@@ -62,12 +75,7 @@ class SingleBranchConfig(Config):
     """ Configuration settings specific to singlebranch CNN model.
     """
     model_save_path: Path = Config.output_dir / "models" / "single_branch_model.pth"
-
-    # Plots output
     plots_dir: Path = Config.output_dir / "plots" / "singlebranch"
-    loss_plot_save_path: Path = plots_dir / "loss_curves.png"
-    conf_matrix_save_path: Path = plots_dir / "confusion_matrix.png"
-    roc_curve_save_path: Path = plots_dir / "roc_curve.png"
 
 
 @dataclass(kw_only=True)
@@ -75,14 +83,8 @@ class MeritConfig(Config):
     """ Configuration settings specific to merit variables model.
     """
     model_save_path: Path = Config.output_dir / "models" / "merit_model.pth"
-    
-    # Plots output
     plots_dir: Path = Config.output_dir / "plots" / "merit"
-    loss_plot_save_path: Path = plots_dir / "loss_curves.png"
-    conf_matrix_save_path: Path = plots_dir / "confusion_matrix.png"
-    roc_curve_save_path: Path = plots_dir / "roc_curve.png"
 
     # Hyperparameters
     weight_decay: float = 0.
     learning_rate: float = 0.001
-    epochs: int = 20
