@@ -124,8 +124,8 @@ def plot_probs_distribution(
         else:
             electrons.append(prob.item())
 
-    plt.hist(protons, bins='auto', histtype='step', label='Protons', alpha=0.7)
-    plt.hist(electrons, bins='auto', histtype='step', label='Electrons', alpha=0.7)
+    plt.hist(protons, histtype='step', label='Protons', alpha=0.7)
+    plt.hist(electrons, histtype='step', label='Electrons', alpha=0.7)
     plt.xlabel('log(1-p)')
     plt.yscale('log')
     plt.title(title)
@@ -217,13 +217,18 @@ def plot_error_energy_distribution(
 
 
 def normalize_image(tensor_data: torch.Tensor, event_energy_mev: float) -> torch.Tensor:
-    """ Normalize the log of the energy of the event display image w.r.t. the log of the event reconstructed energy.
-    """
+    """ Normalize the log of the energy of the event display image w.r.t. the log of the event reconstructed energy. """
     norm_tensor = torch.zeros_like(tensor_data)
 
     # Check for actual active pixels in tensor_data
     active_pixels = tensor_data > 0     # this is a mask, True when the condition is met, False when it's not.
     if active_pixels.any():
+        # TKR mask -> shape (1, 113, 1), broadcasts across columns
+        tkr_mask = (np.arange(tensor_data.shape[1]) > 10)[None, :, None]
+        # Multiplying factor: 1000 if in CAL, 5000 if in TKR, for Mips -> fC conversion
+        factor = np.where(tkr_mask, 5000, 1000)
+        # Convert to keV
+        active_kev = np.where(active_pixels, tensor_data*factor, tensor_data)
         active_kev = tensor_data[active_pixels] * 1000.0
         event_energy_kev = event_energy_mev * 1000.0
         log_norm_factor = np.log10(max(event_energy_kev, 1.0))  # to ensure positive normalization
