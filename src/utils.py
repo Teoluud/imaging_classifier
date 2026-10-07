@@ -113,26 +113,22 @@ def plot_probs_distribution(
         title: str = "Output probs distribution"
 ) -> None:
     """ Plots the distributions of the log(1 - probability), with the probability normalized between -1 (Proton) and 1 (Electron). """
+    # 1 - (p_e - p_p) == 2 * p_p when p_e + p_p == 1; avoids catastrophic cancellation
+    eps = torch.finfo(torch.float32).tiny
+    norm_probs = torch.log((2.0 * probs[:, 0]).clamp(min=eps))
 
-    norm_probs = torch.log(1-(probs[:, 1] - probs[:, 0]))
+    protons = norm_probs[truths == 0].numpy()
+    electrons = norm_probs[truths == 1].numpy()
 
-    protons: list[float] = []
-    electrons: list[float] = []
-    for i, prob in enumerate(norm_probs):
-        if truths[i] == 0:
-            protons.append(prob.item())
-        else:
-            electrons.append(prob.item())
-
-    plt.hist(protons, histtype='step', label='Protons', alpha=0.7)
-    plt.hist(electrons, histtype='step', label='Electrons', alpha=0.7)
+    bins = np.linspace(norm_probs.min().item(), norm_probs.max().item(), 100)
+    plt.hist(protons, bins=bins.tolist(), histtype='step', label='Protons', alpha=0.7)
+    plt.hist(electrons, bins=bins.tolist(), histtype='step', label='Electrons', alpha=0.7)
     plt.xlabel('log(1-p)')
     plt.yscale('log')
     plt.title(title)
     plt.legend()
     plt.savefig(save_path)
     plt.close()
-
 
 def plot_energy_distribution(
         energies: NDArray[np.float32],
