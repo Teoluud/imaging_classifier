@@ -56,7 +56,7 @@ class Config:
     batch_size: int = 64
     train_split: float = 0.8
     test_split: float | None = 0.10
-    epochs: int = 2
+    epochs: int = 50
 
     loss_fn: torch.nn.Module = torch.nn.CrossEntropyLoss()
     accuracy_fn: MulticlassAccuracy = MulticlassAccuracy(num_classes=2, average="micro")
@@ -84,6 +84,7 @@ class MeritConfig(Config):
     """
     model_save_path: Path = Config.output_dir / "models" / "merit_model.pth"
     plots_dir: Path = Config.output_dir / "plots" / "merit"
+    normalizer_save_path: Path = Config.output_dir / "models" / "merit_normalizer.pth"
 
     # Hyperparameters
     weight_decay: float = 0.
