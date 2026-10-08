@@ -3,7 +3,7 @@ from typing import Any
 import torch
 from torch.utils.data import DataLoader
 
-from src.config import Config
+from src.config import Config, MeritConfig
 from src.logger import logger
 from src.data import FermiDataModule
 from src.training_loop import TrainingLoop
@@ -49,6 +49,15 @@ class ClassifierPipeline:
             test_split=self.config.test_split,
             random_state=self.config.random_seed
         )
+
+        # Setup the merit normalizer if needed
+        if self.merit:
+            # Check the config is MeritConfig (has normalizer save path)
+            assert isinstance(self.config, MeritConfig)
+            self.data_module.setup_merit_normalizer(
+                save_path=self.config.normalizer_save_path,
+                fit = self.train
+            )
 
         return loaders
 

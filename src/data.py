@@ -1,6 +1,6 @@
 import bisect
 from pathlib import Path
-from typing import override, Callable, Any
+from typing import override, Any
 
 # pyright: reportMissingTypeStubs=false
 import numpy as np
@@ -9,7 +9,7 @@ import torch
 import h5py
 from torch.utils.data import Dataset, DataLoader, Subset
 
-from src.utils import normalize_image, normalize_merit
+from src.transforms import Transform, ImageLogNormalizer, MeritMinMaxNormalizer
 from src.logger import logger
 
 
@@ -19,7 +19,7 @@ class FermiLATDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     Uses memory mapping and binary search to avoid filling the RAM and CPU bottlenecks.
     """
 
-    def __init__(self, file_path: str | Path) -> None:
+    def __init__(self, file_path: str | Path, transform: Transform | None = None) -> None:
         """ Constructor. """
 
         path = Path(file_path)
@@ -40,6 +40,8 @@ class FermiLATDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         
         # Create a flat list of starting indices for fast binary search
         self.start_indices = [start_idx for _, start_idx, _, _ in self.file_ranges]
+
+        self.transform = transform
         
         logger.info(f"Dataset ready: {len(self.labels)} total events loaded.")
         logger.info(f"Protons: {self._get_label_count(0)} | Electrons: {self._get_label_count(1)}")
@@ -86,6 +88,21 @@ class FermiLATDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             self.handles[path] = h5py.File(path, "r", swmr=True)
         return self.handles[path]
 
+    def _locate(self, idx: int) -> tuple[Path, int, int]:
+        """ Finds the event in the data files. """
+        # Binary search
+        file_idx = bisect.bisect_right(self.start_indices, idx) - 1
+        if file_idx < 0 or file_idx >= len(self.file_ranges):
+            raise IndexError(f"Index {idx} out of bounds.")
+        path, start, n, label = self.file_ranges[file_idx]
+        if not (start <= idx < start + n):
+            raise IndexError(f"Index {idx} out of bounds.")
+        return path, idx - start, label
+
+    def _read(self, f: h5py.File, local_idx: int) -> torch.Tensor:
+        """ Gets the event from the file. """
+        raise NotImplementedError("This method has to be implemented in a subclass.")
+    
     @property
     def labels(self) -> np.ndarray:
         """ Reconstructs the full label array from chunk metadata for stratification. """
@@ -99,7 +116,15 @@ class FermiLATDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         return self.events_counter
     
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        raise NotImplementedError("This method has to be implemented in a subclass.")
+        path, local_idx, label = self._locate(idx)
+        file = self._get_handle(path)
+        data = self._read(file, local_idx)
+        meta_node = file["meta"]
+        assert isinstance(meta_node, h5py.Dataset)
+        meta = torch.as_tensor(np.asarray(meta_node[local_idx], dtype=np.float64))
+        if self.transform is not None:
+            data = self.transform(data, meta)
+        return data, torch.tensor(label, dtype=torch.long)
 
     def __del__(self) -> None:
         """ Closes all file handles when dataset is destroyed. """
@@ -125,117 +150,62 @@ class FermiLATDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
 class ImagingDataset(FermiLATDataset):
     """ Dataset Class to load imaging data (event display images). """
 
-    def __init__(self, file_path: str | Path, transform: Callable[..., torch.Tensor] | None = None) -> None:
-        super().__init__(file_path)
-        self.transform = transform
-
     @override
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        # Binary search instantly finds the correct chunk
-        file_idx = bisect.bisect_right(self.start_indices, idx) - 1
-        
-        if file_idx < 0 or file_idx >= len(self.file_ranges):
-            raise IndexError(f"Index {idx} out of bounds.")
-            
-        target_path, start_idx, num_events, event_label = self.file_ranges[file_idx]
-        
-        # Safety check to ensure the index is valid for this chunk
-        if not (start_idx <= idx < start_idx + num_events):
-            raise IndexError(f"Index {idx} out of bounds.")
-            
-        local_idx = idx - start_idx
+    def _read(self, f: h5py.File, local_idx: int) -> torch.Tensor:
+        view_names = ("view_x", "view_y", "view_top")
+        views: list[np.ndarray] = []
+        for key in view_names:
+            dataset = f[key]
+            assert isinstance(dataset, h5py.Dataset)
+            views.append(np.asarray(dataset[local_idx], dtype=np.float32))
 
-        # Retrieve file handle
-        f = self._get_handle(target_path)
-        
-        # Extract data
-        # Type checking
-        node_x = f["view_x"]
-        node_y = f["view_y"]
-        node_top = f["view_top"]
-        node_meta = f["meta"]
-        
-        if (isinstance(node_x, h5py.Dataset) and 
-            isinstance(node_y, h5py.Dataset) and 
-            isinstance(node_top, h5py.Dataset) and 
-            isinstance(node_meta, h5py.Dataset)):
-            x: NDArray[np.float32] = np.asarray(node_x[local_idx], dtype=np.float32)
-            y: NDArray[np.float32] = np.asarray(node_y[local_idx], dtype=np.float32)
-            top: NDArray[np.float32] = np.asarray(node_top[local_idx], dtype=np.float32)
-            event_meta: NDArray[np.float64] = np.asarray(node_meta[local_idx], dtype=np.float64)
-        else:
-            raise TypeError("Expected h5py.Dataset")
-
-        # Stack into a 3-channel numpy array (Shape: 3, 113, 113)
-        stacked_views = np.stack([x, y, top], axis=0)
-        tensor_data = torch.as_tensor(stacked_views, dtype=torch.float32)
-
-        if self.transform is not None:
-            tensor_data = self.transform(tensor_data, event_meta[2])
-        
-        # Get label
-        label = torch.tensor(event_label, dtype=torch.long)
-        
-        return tensor_data, label
+        return torch.as_tensor(np.stack(views, axis=0))
 
 
 class MeritDataset(FermiLATDataset):
     """ Dataset Class to load merit variables data. """
 
-    def __init__(self, file_path: str | Path, transform: Callable[..., torch.Tensor] | None = None) -> None:
-        super().__init__(file_path)
-        self.transform = transform
-
     @override
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        # Search for the file idx
-        file_idx = bisect.bisect_right(self.start_indices, idx) - 1
+    def _read(self, f: h5py.File, local_idx: int) -> torch.Tensor:
+        dataset = f["merit_values"]
+        assert isinstance(dataset, h5py.Dataset)
+        return torch.as_tensor(np.asarray(dataset[local_idx], dtype=np.float32))
 
-        if file_idx < 0 or file_idx >= len(self.file_ranges):
-            raise IndexError(f"Index {idx} out of bounds.")
+    def load_all(self) -> torch.Tensor:
+        """ Returns all merit vectors in global index order, shape (N, 17). """
+        arrays: list[NDArray[np.float32]] = []
+        for path, _, _, _ in self.file_ranges:
+            with h5py.File(path, "r") as f:
+                node = f["merit_values"]
+                assert isinstance(node, h5py.Dataset)
+                arrays.append(np.asarray(node[:], dtype=np.float32))
+        return torch.as_tensor(np.concatenate(arrays))
 
-        target_path, start_idx, num_events, event_label = self.file_ranges[file_idx]
-
-        # Safety check to ensure the index is valid for this chunk
-        if not (start_idx <= idx < start_idx + num_events):
-            raise IndexError(f"Index {idx} out of bounds.")
-
-        local_idx = idx - start_idx
-
-        # Retrieve file handle
-        f = self._get_handle(target_path)
-
-        # Extract data
-        node_var = f["merit_values"]
-        node_meta = f["meta"]
-
-        if isinstance(node_var, h5py.Dataset) and isinstance(node_meta, h5py.Dataset):
-            merit_var = np.asarray(node_var[local_idx], dtype=np.float32)
-        else:
-            raise TypeError("Expected h5py.Dataset")
-        merit_var = torch.as_tensor(merit_var, dtype=torch.float32)
-
-        if self.transform is not None:
-            merit_var = self.transform(merit_var)
-
-        return merit_var, torch.tensor(event_label, dtype=torch.long)
-        
 
 class FermiDataModule:
     """ Manages training split and provides PyTorch DataLoaders. """
 
-    def __init__(
-            self,
-            file_path: str | Path,
-            batch_size: int = 32,
-            merit: bool = False
-    ) -> None:
+    def __init__(self, file_path: str | Path, batch_size: int = 32, merit: bool = False) -> None:
+        self.merit = merit
         if merit:
-            self.dataset = MeritDataset(file_path, transform=normalize_merit)
+            self.dataset = MeritDataset(file_path)
         else:
-            self.dataset = ImagingDataset(file_path, transform=normalize_image)
+            self.dataset = ImagingDataset(file_path, transform=ImageLogNormalizer())
         self.batch_size = batch_size
         self.loaders: dict[str, DataLoader[Any]] = {}
+
+    def setup_merit_normalizer(self, save_path: Path, fit: bool) -> None:
+        """ Fit on train split (or load a saved one) and attach to the dataset. """
+        assert isinstance(self.dataset, MeritDataset)
+        if fit:
+            train_subset = self.loaders["train"].dataset
+            assert isinstance(train_subset, Subset)
+            data = self.dataset.load_all()[train_subset.indices]
+            normalizer = MeritMinMaxNormalizer.fit(data)
+            normalizer.save(save_path)
+        else:
+            normalizer = MeritMinMaxNormalizer.load(save_path)
+        self.dataset.transform = normalizer
 
     def get_split_energies(self, split_name: str = "test") -> torch.Tensor:
         """ Returns the 1D energy tensor for the requested data split. """

@@ -231,16 +231,3 @@ def normalize_image(tensor_data: torch.Tensor, event_energy_mev: float) -> torch
         norm_tensor[active_pixels] = torch.log10(active_kev) / log_norm_factor
 
     return norm_tensor
-
-
-def normalize_merit(merit_vars: torch.Tensor) -> torch.Tensor:
-    """ Normalize each merit variable to the maximum value in the dataset.
-    """
-    # Find the max values for each variable
-    max_values = torch.amax(merit_vars, dim=0)
-    min_values = torch.amin(merit_vars, dim=0)
-
-    # Normalize
-    norm_vars = (merit_vars - min_values) / (max_values - min_values)
-
-    return norm_vars
