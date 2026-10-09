@@ -7,7 +7,7 @@ from src.config import Config, MeritConfig
 from src.logger import logger
 from src.data import FermiDataModule
 from src.training_loop import TrainingLoop
-from src.utils import plot_training_results, plot_conf_matrix, plot_roc_curve, plot_probs_distribution, plot_error_energy_distribution
+from src.plotting import plot_training_results, EvaluationPlotter
 from src.evaluator import Evaluator
 
 
@@ -55,6 +55,7 @@ class ClassifierPipeline:
             # Check the config is MeritConfig (has normalizer save path)
             assert isinstance(self.config, MeritConfig)
             self.data_module.setup_merit_normalizer(
+                normalizer_cls=self.config.normalizer_cls,
                 save_path=self.config.normalizer_save_path,
                 fit = self.train
             )
@@ -114,22 +115,12 @@ class ClassifierPipeline:
         """
         preds, truths, probs = metrics["preds"], metrics["truths"], metrics["probs"]
 
-        plot_conf_matrix(preds, truths, self.config.class_names,
-                         save_path=self.config.conf_matrix_save_path,
-                         title=f"Confusion Matrix: {self.model.__class__.__name__}, {split_name} dataset.")
-        
-        plot_roc_curve(probs, truths,
-                       save_path=self.config.roc_curve_save_path,
-                       title=f"ROC Curve: {self.model.__class__.__name__}, {split_name} dataset.")
+        plotter = EvaluationPlotter(self.config.plots_dir, self.config.class_names, self.model.__class__.__name__, split_name)
 
-        plot_probs_distribution(probs, truths,
-                                save_path=self.config.probs_distribution_save_path,
-                                title=f"Probs distribution: {self.model.__class__.__name__}, {split_name} dataset.")
+        plotter.plot_conf_matrix(preds, truths)
+        plotter.plot_roc_curve(probs, truths)
+        plotter.plot_error_energy_distribution(probs, truths, metrics["energies"])
 
-        plot_error_energy_distribution(probs, truths, metrics["energies"],
-                                       save_path=self.config.error_energy_distribution_save_path,
-                                       title=f"Error vs Energy: {self.model.__class__.__name__}, {split_name} dataset.")
+        # plotter.plot_energy_distribution(metrics["energies"], truths)
 
-        # plot_energy_distribution(metrics["energies"], truths)
-
-        logger.debug(f"Exported evaluation metrics to{self.config.conf_matrix_save_path} and {self.config.roc_curve_save_path}")
+        logger.debug(f"Exported evaluation metrics to{self.config.plots_dir}")
