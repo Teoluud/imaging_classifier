@@ -9,7 +9,7 @@ import torch
 import h5py
 from torch.utils.data import Dataset, DataLoader, Subset
 
-from src.transforms import Transform, ImageLogNormalizer, MeritMinMaxNormalizer
+from src.transforms import Transform, Persistable, ImageLogNormalizer, MeritMinMaxNormalizer
 from src.logger import logger
 
 
@@ -194,14 +194,14 @@ class FermiDataModule:
         self.batch_size = batch_size
         self.loaders: dict[str, DataLoader[Any]] = {}
 
-    def setup_merit_normalizer(self, save_path: Path, fit: bool) -> None:
+    def setup_merit_normalizer(self, normalizer_cls: type[Persistable], save_path: Path, fit: bool) -> None:
         """ Fit on train split (or load a saved one) and attach to the dataset. """
         assert isinstance(self.dataset, MeritDataset)
         if fit:
             train_subset = self.loaders["train"].dataset
             assert isinstance(train_subset, Subset)
             data = self.dataset.load_all()[train_subset.indices]
-            normalizer = MeritMinMaxNormalizer.fit(data)
+            normalizer = normalizer_cls.fit(data)
             normalizer.save(save_path)
         else:
             normalizer = MeritMinMaxNormalizer.load(save_path)

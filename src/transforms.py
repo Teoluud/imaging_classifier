@@ -22,6 +22,11 @@ class Transform(Protocol):
 class Persistable(Protocol):
     """ A transform with fitted state that must be saved next to the model. """
 
+    def __call__(self, x: torch.Tensor, meta: torch.Tensor) -> torch.Tensor: ...
+
+    @classmethod
+    def fit(cls, data: torch.Tensor) -> Self: ...
+
     def save(self, path: Path) -> None: ...
 
     @classmethod
@@ -31,21 +36,29 @@ class Persistable(Protocol):
 class ImageLogNormalizer:
     """ Normalize the log of the energy of the event display image w.r.t. the log of the event reconstructed energy. """
 
+    CAL_FACTOR = 1000.0
+    TKR_FACTOR = 5000.0
+    LAST_CAL_ROW = 10
+    XY_VIEWS = slice(0, 2)
+
+    def _conversion_factors(self, x: torch.Tensor) -> torch.Tensor:
+        """ Per-pixel factor, shape (views, rows, 1), broadcast over the columns. """
+        n_views, n_rows = x.shape[0], x.shape[1]
+        factor = torch.full((n_views, n_rows, 1), self.CAL_FACTOR, dtype=x.dtype, device=x.device)
+        tkr_rows = torch.arange(n_rows, device=x.device) > self.LAST_CAL_ROW
+        factor[self.XY_VIEWS, tkr_rows] = self.TKR_FACTOR
+        return factor
+
     def __call__(self, x: torch.Tensor, meta: torch.Tensor) -> torch.Tensor:
         out = torch.zeros_like(x)
 
         # Check for actual active pixels in the data tensor
         active = x > 0
         if active.any():
-            # TKR mask -> shape (1, rows, 1), broadcasts across events and columns.
-            tkr_mask = (torch.arange(x.shape[1], device=x.device) > 10)[None, :, None]
-            # Multiplying factor: 1000 if in CAL, 5000 if in TKR for Mips -> fC conversion.
-            factor = torch.where(tkr_mask, 5000.0, 1000.0).to(dtype=x.dtype)
-            # Convert to keV without converting the tensor to a NumPy array.
-            active_kev = torch.where(active, x * factor, x)
+            scaled = x * self._conversion_factors(x)
             event_energy_kev = float(meta[ENERGY_IDX]) * 1000.0
             log_norm_factor = np.log10(max(event_energy_kev, 1.0))  # to ensure positive normalization
-            out[active] = torch.log10(active_kev) / log_norm_factor
+            out[active] = torch.log10(scaled[active]) / log_norm_factor
 
         return out
 
@@ -71,7 +84,7 @@ class MeritMinMaxNormalizer:
             x (torch.Tensor): The merit variables data.
             meta (torch.Tensor): The meta data, not used (needed to comply with Transform protocol).
         """
-        return (x - self.min_value) / (self.max_value - self.min_value)
+        return (x - self.min_value) / (self.max_value - self.min_value).clamp(1e-8)     # acoid dividing by zero
 
     def save(self, path: Path) -> None:
         """ Saves the fitted state. """

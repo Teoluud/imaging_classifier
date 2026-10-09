@@ -5,6 +5,8 @@ from enum import Enum
 import torch
 from torchmetrics.classification import MulticlassAccuracy
 
+from src.transforms import Persistable, MeritMinMaxNormalizer
+
 
 class Labels(Enum):
     PROTON = 0
@@ -32,22 +34,6 @@ class Config:
     @property
     def loss_plot_save_path(self) -> Path:
         return self._plot_path("loss_curves.png")
-
-    @property
-    def conf_matrix_save_path(self) -> Path:
-        return self._plot_path("confusion_matrix.png")
-
-    @property
-    def roc_curve_save_path(self) -> Path:
-        return self._plot_path("roc_curve.png")
-
-    @property
-    def probs_distribution_save_path(self) -> Path:
-        return self._plot_path("probs_distribution.png")
-
-    @property
-    def error_energy_distribution_save_path(self) -> Path:
-        return self._plot_path("error_energy_distribution.png")
 
     # Hyperparameters
     random_seed: int = 42
@@ -84,6 +70,8 @@ class MeritConfig(Config):
     """
     model_save_path: Path = Config.output_dir / "models" / "merit_model.pth"
     plots_dir: Path = Config.output_dir / "plots" / "merit"
+
+    normalizer_cls: type[Persistable] = MeritMinMaxNormalizer
     normalizer_save_path: Path = Config.output_dir / "models" / "merit_normalizer.pth"
 
     # Hyperparameters
