@@ -41,7 +41,7 @@ class Config:
     weight_decay: float = 1e-4
     batch_size: int = 64
     train_split: float = 0.8
-    test_split: float | None = 0.10
+    val_split: float | None = 0.10
     epochs: int = 50
 
     loss_fn: torch.nn.Module = torch.nn.CrossEntropyLoss()

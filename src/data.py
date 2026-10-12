@@ -226,7 +226,7 @@ class FermiDataModule:
         raise TypeError(f"Unsupported dataset type for split '{split_name}': {type(dataset)!r}")
 
     def train_split(
-        self, train_split: float, test_split: float | None = None, random_state: int = 42
+        self, train_split: float, val_split: float | None = None, random_state: int = 42
     ) -> dict[str, DataLoader[Any]]:
         """ Splits the data into train and validation DataLoaders.
         """
@@ -255,10 +255,10 @@ class FermiDataModule:
         self.loaders["train"] = train_loader
 
         # VALIDATION AND OPTIONAL TEST SPLIT
-        if test_split is not None:
-            p_test_split = int(len(proton_idx) * (train_split + test_split))
-            e_test_split = int(len(electron_idx) * (train_split + test_split))
-            test_indices = np.concatenate((proton_idx[p_test_split:], electron_idx[e_test_split:]))
+        if val_split is not None:
+            p_val_split = int(len(proton_idx) * (train_split + val_split))
+            e_val_split = int(len(electron_idx) * (train_split + val_split))
+            test_indices = np.concatenate((proton_idx[p_val_split:], electron_idx[e_val_split:]))
             np.random.shuffle(test_indices)
             test_dataset = Subset(self.dataset, test_indices.tolist())
             test_loader = DataLoader(test_dataset,
@@ -268,7 +268,7 @@ class FermiDataModule:
                                           pin_memory=True)  # Speed up CPU to GPU transfer
             self.loaders["test"] = test_loader
             
-            val_indices = np.concatenate((proton_idx[p_train_split:p_test_split], electron_idx[e_train_split:e_test_split]))
+            val_indices = np.concatenate((proton_idx[p_train_split:p_val_split], electron_idx[e_train_split:e_val_split]))
 
         else:
             val_indices = np.concatenate((proton_idx[p_train_split:], electron_idx[e_train_split:]))

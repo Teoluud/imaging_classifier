@@ -47,7 +47,7 @@ class ClassifierPipeline:
 
         loaders = self.data_module.train_split(
             train_split=self.config.train_split,
-            test_split=self.config.test_split,
+            val_split=self.config.val_split,
             random_state=self.config.random_seed
         )
 
@@ -105,10 +105,10 @@ class ClassifierPipeline:
             device=self.device
         )
 
-        test_loader = loaders["test"] if self.config.test_split is not None else loaders["val"]
-        split_name = "Test" if self.config.test_split is not None else "Validation"
+        test_loader = loaders["test"] if self.config.val_split is not None else loaders["val"]
+        split_name = "Test" if self.config.val_split is not None else "Validation"
         results = evaluator.evaluate(data_loader=test_loader, split_name=split_name)
-        results = replace(results, energies=self.data_module.get_split_energies("test" if self.config.test_split else "val"))
+        results = replace(results, energies=self.data_module.get_split_energies("test" if self.config.val_split else "val"))
         self._log_and_plot_metrics(results, split_name)
 
     def _log_and_plot_metrics(self, results: EvalResults, split_name: str) -> None:
