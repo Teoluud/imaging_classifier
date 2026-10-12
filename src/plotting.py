@@ -155,7 +155,7 @@ class EvaluationPlotter:
             self,
             probs: torch.Tensor,
             truths: torch.Tensor,
-            energies: NDArray[np.float32],
+            energies: torch.Tensor,
             filename: str = "error_energy_distribution.png",
             title: str = "Error vs Energy"
     ) -> None:
@@ -166,7 +166,7 @@ class EvaluationPlotter:
 
         # Filter invalid energies
         valid_mask = energies > 0
-        clean_energies = energies[valid_mask]
+        clean_energies = energies.numpy()[valid_mask]
         clean_errors = errors[valid_mask]
         clean_truths = truths.numpy()[valid_mask]
 

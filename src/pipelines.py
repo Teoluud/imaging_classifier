@@ -1,4 +1,5 @@
 from typing import Any
+from dataclasses import replace
 
 import torch
 from torch.utils.data import DataLoader
@@ -8,7 +9,7 @@ from src.logger import logger
 from src.data import FermiDataModule
 from src.training_loop import TrainingLoop
 from src.plotting import plot_training_results, EvaluationPlotter
-from src.evaluator import Evaluator
+from src.evaluator import Evaluator, EvalResults
 
 
 class ClassifierPipeline:
@@ -106,20 +107,21 @@ class ClassifierPipeline:
 
         test_loader = loaders["test"] if self.config.test_split is not None else loaders["val"]
         split_name = "Test" if self.config.test_split is not None else "Validation"
-        metrics = evaluator.evaluate(data_loader=test_loader, split_name=split_name)
-        metrics["energies"] = self.data_module.get_split_energies("test" if self.config.test_split else "val")
-        self._log_and_plot_metrics(metrics, split_name)
+        results = evaluator.evaluate(data_loader=test_loader, split_name=split_name)
+        results = replace(results, energies=self.data_module.get_split_energies("test" if self.config.test_split else "val"))
+        self._log_and_plot_metrics(results, split_name)
 
-    def _log_and_plot_metrics(self, metrics: dict[str, Any], split_name: str) -> None:
+    def _log_and_plot_metrics(self, results: EvalResults, split_name: str) -> None:
         """ Handles classification metrics calculations and plotting.
         """
-        preds, truths, probs = metrics["preds"], metrics["truths"], metrics["probs"]
+        preds, truths, probs = results.preds, results.truths, results.probs
 
         plotter = EvaluationPlotter(self.config.plots_dir, self.config.class_names, self.model.__class__.__name__, split_name)
 
         plotter.plot_conf_matrix(preds, truths)
         plotter.plot_roc_curve(probs, truths)
-        plotter.plot_error_energy_distribution(probs, truths, metrics["energies"])
+        if results.energies is not None:
+            plotter.plot_error_energy_distribution(probs, truths, results.energies)
 
         # plotter.plot_energy_distribution(metrics["energies"], truths)
 

@@ -1,10 +1,22 @@
 from typing import Any
+from dataclasses import dataclass
 
 import torch
 from torchmetrics.classification import MulticlassAccuracy
 from torch.utils.data import DataLoader
 
 from src.logger import logger
+
+
+@dataclass(frozen=True, kw_only=True)
+class EvalResults:
+    """ Results from the evaluation of the model. """
+    loss: float
+    accuracy: float
+    probs: torch.Tensor                     # (N, 2) softmax probabilities
+    preds: torch.Tensor                     # (N,) predicted class
+    truths: torch.Tensor                    # (N,) true class
+    energies: torch.Tensor | None = None    # (N,) reconstructed energy [MeV]
 
 
 class Evaluator:
@@ -23,7 +35,7 @@ class Evaluator:
         self.accuracy_fn = accuracy_fn.to(device)
         self.device = device
 
-    def evaluate(self, data_loader: DataLoader[Any], split_name: str = "Test") -> dict[str, Any]:
+    def evaluate(self, data_loader: DataLoader[Any], split_name: str = "Test") -> EvalResults:
         """ Runs a full forward pass over the data_loader and computes evaluation metrics.
         """
         logger.debug(f"Starting evaluation on {split_name} set...")
@@ -59,10 +71,10 @@ class Evaluator:
 
         logger.info(f"[{split_name} Results] Loss: {eval_loss:.5f} | Accuracy: {eval_acc:.2%}")
 
-        return {
-            "loss": eval_loss,
-            "accuracy": eval_acc,
-            "probs": torch.cat(y_probs),            
-            "preds": torch.cat(y_preds),
-            "truths": torch.cat(y_truths)
-        }
+        return EvalResults(
+            loss = eval_loss,
+            accuracy = eval_acc,
+            probs = torch.cat(y_probs),            
+            preds = torch.cat(y_preds),
+            truths = torch.cat(y_truths)
+        )
