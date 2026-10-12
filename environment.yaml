@@ -1,0 +1,13 @@
+name: imaging_classifier
+channels:
+  - conda-forge
+dependencies:
+  - pytorch
+  - matplotlib
+  - torchmetrics
+  - mlxtend
+  - tqdm
+  - torchinfo
+  - argcomplete
+  - h5py
+prefix: /data1/grosjacques/imaging_classifier
