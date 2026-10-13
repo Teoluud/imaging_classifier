@@ -120,6 +120,7 @@ class ClassifierPipeline:
 
         plotter.plot_conf_matrix(preds, truths)
         plotter.plot_roc_curve(probs, truths)
+        plotter.plot_probs_distribution(probs, truths)
         if results.energies is not None:
             plotter.plot_error_energy_distribution(probs, truths, results.energies)
 
