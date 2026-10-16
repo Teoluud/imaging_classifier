@@ -4,9 +4,10 @@ from tqdm.auto import tqdm
 
 class TqdmLoggingHandler(logging.Handler):
     """
-    Custom logging handler that directs standard log messages 
+    Custom logging handler that directs standard log messages
     through tqdm.write() to prevent progress bar corruption.
     """
+
     def emit(self, record: logging.LogRecord) -> None:
         try:
             msg = self.format(record)
@@ -26,14 +27,14 @@ def setup_logger(name: str = __name__) -> logging.Logger:
     # Prevent adding multiple handlers if the module is imported multiple times
     if not custom_logger.hasHandlers():
         handler = TqdmLoggingHandler()
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
         handler.setFormatter(formatter)
         custom_logger.addHandler(handler)
-        
+
         # Prevent log propagation to the root logger to avoid duplicate standard console prints
         custom_logger.propagate = False
-        
+
     return custom_logger
 
 

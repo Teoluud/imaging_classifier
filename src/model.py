@@ -3,8 +3,7 @@ import torch.nn as nn
 
 
 class FermiMultiBranchCNN(nn.Module):
-    """ Multi-branch network classifier to analyze 3 projections independentely.
-    """
+    """Multi-branch network classifier to analyze 3 projections independentely."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -20,26 +19,26 @@ class FermiMultiBranchCNN(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(in_features=128, out_features=32),
             nn.ReLU(),
-            nn.Linear(in_features=32, out_features=2)  # 2 Outputs: [Proton Score, Electron Score]
+            nn.Linear(
+                in_features=32, out_features=2
+            ),  # 2 Outputs: [Proton Score, Electron Score]
         )
 
     def _create_branch(self) -> nn.Sequential:
-        """ Constructs an individual view's processing convolutional block.
-        """
+        """Constructs an individual view's processing convolutional block."""
         return nn.Sequential(
             nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2),  # 113 -> 56
-
             nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2),  # 56 -> 28
-
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1, stride=2),
+            nn.Conv2d(
+                in_channels=16, out_channels=32, kernel_size=3, padding=1, stride=2
+            ),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2),  # 28 -> 7
-
-            nn.Flatten()
+            nn.Flatten(),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -57,29 +56,31 @@ class FermiMultiBranchCNN(nn.Module):
         merged_features = torch.cat((out_x, out_y, out_top), dim=1)
         output = self.classifier(merged_features)
         return output
-    
+
 
 class FermiSingleBranchCNN(nn.Module):
-    """ Single-branch classifier (conventional CNN).
-    """
+    """Single-branch classifier (conventional CNN)."""
 
     def __init__(self) -> None:
         super().__init__()
 
         self.convolutional_stack = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=3*8, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=3, out_channels=3 * 8, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2),  # 113 -> 56
-
-            nn.Conv2d(in_channels=3*8, out_channels=3*16, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=3 * 8, out_channels=3 * 16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2),  # 56 -> 28
-
-            nn.Conv2d(in_channels=3*16, out_channels=3*32, kernel_size=3, padding=1, stride=2),
+            nn.Conv2d(
+                in_channels=3 * 16,
+                out_channels=3 * 32,
+                kernel_size=3,
+                padding=1,
+                stride=2,
+            ),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2),  # 28 -> 7
-
-            nn.Flatten()
+            nn.Flatten(),
         )
 
         self.classifier = nn.Sequential(
@@ -88,15 +89,17 @@ class FermiSingleBranchCNN(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(in_features=128, out_features=32),
             nn.ReLU(),
-            nn.Linear(in_features=32, out_features=2)  # 2 Outputs: [Proton Score, Electron Score]
+            nn.Linear(
+                in_features=32, out_features=2
+            ),  # 2 Outputs: [Proton Score, Electron Score]
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.classifier(self.convolutional_stack(x))
 
+
 class FermiMeritVarsNN(nn.Module):
-    """ Simple classifier for Merit Variables.
-    """
+    """Simple classifier for Merit Variables."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -106,10 +109,8 @@ class FermiMeritVarsNN(nn.Module):
             nn.ReLU(),
             nn.Linear(in_features=10, out_features=8),
             nn.ReLU(),
-            nn.Linear(in_features=8, out_features=2)
-
+            nn.Linear(in_features=8, out_features=2),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.linear_stack(x)
-        

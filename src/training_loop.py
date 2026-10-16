@@ -10,16 +10,16 @@ from src.logger import logger
 
 
 class TrainingLoop:
-    """ Class that handles the training loop.
-    """
+    """Class that handles the training loop."""
+
     def __init__(
-            self,
-            model: torch.nn.Module,
-            loss_fn: torch.nn.Module,
-            optimizer: torch.optim.Optimizer,
-            accuracy_fn: MulticlassAccuracy,
-            device: torch.device,
-            model_save_path: str | Path = "best_fermi_model.pth"
+        self,
+        model: torch.nn.Module,
+        loss_fn: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        accuracy_fn: MulticlassAccuracy,
+        device: torch.device,
+        model_save_path: str | Path = "best_fermi_model.pth",
     ) -> None:
         self.model = model
         self.loss_fn = loss_fn
@@ -33,8 +33,7 @@ class TrainingLoop:
         self.learning_rates: list[float] = []
 
     def train_step(self, data_loader: DataLoader[Any]) -> float:
-        """ Performs a training step with model trying to learn on data_loader.
-        """
+        """Performs a training step with model trying to learn on data_loader."""
         train_loss, train_acc = 0, 0
         self.accuracy_fn.reset()
         self.model.train()
@@ -63,10 +62,9 @@ class TrainingLoop:
         logger.debug(f"Train loss: {train_loss:.5f} | Train acc: {train_acc:.2%}")
 
         return train_loss
-    
+
     def validation_step(self, data_loader: DataLoader[Any]) -> float:
-        """ Performs a validation loop step on model going over data_loader.
-        """
+        """Performs a validation loop step on model going over data_loader."""
         val_loss, val_acc = 0, 0
         self.accuracy_fn.reset()
         self.model.eval()
@@ -87,22 +85,28 @@ class TrainingLoop:
             val_acc = self.accuracy_fn.compute().item()
             self.accuracy_fn.reset()
 
-            logger.debug(f"Validation loss: {val_loss:.5f} | Validation accuracy: {val_acc:.2%}")
-        
+            logger.debug(
+                f"Validation loss: {val_loss:.5f} | Validation accuracy: {val_acc:.2%}"
+            )
+
             return val_loss
-        
-    def run(self, epochs: int, train_loader: torch.utils.data.DataLoader[Any], val_loader: DataLoader[Any]) -> None:
-        """ Executes the full training sequence.
-        """
+
+    def run(
+        self,
+        epochs: int,
+        train_loader: torch.utils.data.DataLoader[Any],
+        val_loader: DataLoader[Any],
+    ) -> None:
+        """Executes the full training sequence."""
         logger.debug("------------ TRAINING LOOP ------------")
 
-        best_val_loss = float('inf')
+        best_val_loss = float("inf")
 
         for epoch in tqdm(range(epochs), desc="Running Training Loop..."):
             logger.debug(f"Epoch: {epoch}")
             train_loss = self.train_step(train_loader)
             val_loss = self.validation_step(val_loader)
-            current_lr = self.optimizer.param_groups[0]['lr']
+            current_lr = self.optimizer.param_groups[0]["lr"]
 
             self.train_losses.append(train_loss)
             self.val_losses.append(val_loss)

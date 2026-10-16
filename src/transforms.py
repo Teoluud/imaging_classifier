@@ -4,15 +4,14 @@ from pathlib import Path
 import torch
 import numpy as np
 
-
 # index of the reconstructed energy [MeV] in `meta`
 ENERGY_IDX = 2
 
 
 class Transform(Protocol):
-    """ 
+    """
     Protocol class for a generic transform.
-    
+
     Maps one event's data (and the metadata row) to the tensor fed to the model.
     """
 
@@ -20,7 +19,7 @@ class Transform(Protocol):
 
 
 class Persistable(Protocol):
-    """ A transform with fitted state that must be saved next to the model. """
+    """A transform with fitted state that must be saved next to the model."""
 
     def __call__(self, x: torch.Tensor, meta: torch.Tensor) -> torch.Tensor: ...
 
@@ -34,7 +33,7 @@ class Persistable(Protocol):
 
 
 class ImageLogNormalizer:
-    """ Normalize the log of the energy of the event display image w.r.t. the log of the event reconstructed energy. """
+    """Normalize the log of the energy of the event display image w.r.t. the log of the event reconstructed energy."""
 
     CAL_FACTOR = 1000.0
     TKR_FACTOR = 5000.0
@@ -42,9 +41,11 @@ class ImageLogNormalizer:
     XY_VIEWS = slice(0, 2)
 
     def _conversion_factors(self, x: torch.Tensor) -> torch.Tensor:
-        """ Per-pixel factor, shape (views, rows, 1), broadcast over the columns. """
+        """Per-pixel factor, shape (views, rows, 1), broadcast over the columns."""
         n_views, n_rows = x.shape[0], x.shape[1]
-        factor = torch.full((n_views, n_rows, 1), self.CAL_FACTOR, dtype=x.dtype, device=x.device)
+        factor = torch.full(
+            (n_views, n_rows, 1), self.CAL_FACTOR, dtype=x.dtype, device=x.device
+        )
         tkr_rows = torch.arange(n_rows, device=x.device) > self.LAST_CAL_ROW
         factor[self.XY_VIEWS, tkr_rows] = self.TKR_FACTOR
         return factor
@@ -57,26 +58,28 @@ class ImageLogNormalizer:
         if active.any():
             scaled = x * self._conversion_factors(x)
             event_energy_kev = float(meta[ENERGY_IDX]) * 1000.0
-            log_norm_factor = np.log10(max(event_energy_kev, 1.0))  # to ensure positive normalization
+            log_norm_factor = np.log10(
+                max(event_energy_kev, 1.0)
+            )  # to ensure positive normalization
             out[active] = torch.log10(scaled[active]) / log_norm_factor
 
         return out
 
 
 class MeritMinMaxNormalizer:
-    """ Normalizes the merit values using min max. """
+    """Normalizes the merit values using min max."""
 
     def __init__(self, min_value: torch.Tensor, max_value: torch.Tensor) -> None:
-            self.min_value = min_value
-            self.max_value = max_value
-    
+        self.min_value = min_value
+        self.max_value = max_value
+
     @classmethod
     def fit(cls, data: torch.Tensor) -> Self:
-        """ Computes the normalizing parameters for the dataset. """
+        """Computes the normalizing parameters for the dataset."""
         return cls(data.min(dim=0).values, data.max(dim=0).values)
 
     def __call__(self, x: torch.Tensor, meta: torch.Tensor) -> torch.Tensor:
-        """ 
+        """
         Allows the instance to be called like a function.
         Returns the normalized merit tensor.
 
@@ -84,14 +87,16 @@ class MeritMinMaxNormalizer:
             x (torch.Tensor): The merit variables data.
             meta (torch.Tensor): The meta data, not used (needed to comply with Transform protocol).
         """
-        return (x - self.min_value) / (self.max_value - self.min_value).clamp(1e-8)     # acoid dividing by zero
+        return (x - self.min_value) / (self.max_value - self.min_value).clamp(
+            1e-8
+        )  # acoid dividing by zero
 
     def save(self, path: Path) -> None:
-        """ Saves the fitted state. """
+        """Saves the fitted state."""
         torch.save({"min": self.min_value, "max": self.max_value}, path)
 
     @classmethod
     def load(cls, path: Path) -> Self:
-        """ Loads the fitted state from the save file. """
+        """Loads the fitted state from the save file."""
         state = torch.load(path, weights_only=False)
         return cls(state["min"], state["max"])

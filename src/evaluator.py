@@ -10,37 +10,38 @@ from src.logger import logger
 
 @dataclass(frozen=True, kw_only=True)
 class EvalResults:
-    """ Results from the evaluation of the model. """
+    """Results from the evaluation of the model."""
+
     loss: float
     accuracy: float
-    probs: torch.Tensor                     # (N, 2) softmax probabilities
-    preds: torch.Tensor                     # (N,) predicted class
-    truths: torch.Tensor                    # (N,) true class
-    energies: torch.Tensor | None = None    # (N,) reconstructed energy [MeV]
+    probs: torch.Tensor  # (N, 2) softmax probabilities
+    preds: torch.Tensor  # (N,) predicted class
+    truths: torch.Tensor  # (N,) true class
+    energies: torch.Tensor | None = None  # (N,) reconstructed energy [MeV]
 
 
 class Evaluator:
-    """ Handles the evaluation of a trained model on a test dataset.
-    """
+    """Handles the evaluation of a trained model on a test dataset."""
 
     def __init__(
-            self,
-            model: torch.nn.Module,
-            loss_fn: torch.nn.Module,
-            accuracy_fn: MulticlassAccuracy,
-            device: torch.device
+        self,
+        model: torch.nn.Module,
+        loss_fn: torch.nn.Module,
+        accuracy_fn: MulticlassAccuracy,
+        device: torch.device,
     ) -> None:
         self.model = model
         self.loss_fn = loss_fn
         self.accuracy_fn = accuracy_fn.to(device)
         self.device = device
 
-    def evaluate(self, data_loader: DataLoader[Any], split_name: str = "Test") -> EvalResults:
-        """ Runs a full forward pass over the data_loader and computes evaluation metrics.
-        """
+    def evaluate(
+        self, data_loader: DataLoader[Any], split_name: str = "Test"
+    ) -> EvalResults:
+        """Runs a full forward pass over the data_loader and computes evaluation metrics."""
         logger.debug(f"Starting evaluation on {split_name} set...")
 
-        eval_loss, eval_acc = 0., 0.
+        eval_loss, eval_acc = 0.0, 0.0
         y_probs: list[torch.Tensor] = []
         y_preds: list[torch.Tensor] = []
         y_truths: list[torch.Tensor] = []
@@ -69,12 +70,14 @@ class Evaluator:
         eval_acc = self.accuracy_fn.compute().item()
         self.accuracy_fn.reset()
 
-        logger.info(f"[{split_name} Results] Loss: {eval_loss:.5f} | Accuracy: {eval_acc:.2%}")
+        logger.info(
+            f"[{split_name} Results] Loss: {eval_loss:.5f} | Accuracy: {eval_acc:.2%}"
+        )
 
         return EvalResults(
-            loss = eval_loss,
-            accuracy = eval_acc,
-            probs = torch.cat(y_probs),            
-            preds = torch.cat(y_preds),
-            truths = torch.cat(y_truths)
+            loss=eval_loss,
+            accuracy=eval_acc,
+            probs=torch.cat(y_probs),
+            preds=torch.cat(y_preds),
+            truths=torch.cat(y_truths),
         )
