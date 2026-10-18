@@ -26,7 +26,9 @@ class TrainingLoop:
         self.optimizer = optimizer
         self.accuracy_fn = accuracy_fn.to(device)
         self.device = device
-        self.model_save_path = model_save_path
+        self.model_save_path = Path(model_save_path)
+
+        self.model_save_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.train_losses: list[float] = []
         self.val_losses: list[float] = []

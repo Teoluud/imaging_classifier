@@ -27,7 +27,7 @@ class ClassifierPipeline:
 
     def run(self) -> None:
         """Orchestrates the pipeline execution."""
-        pipeline_name = self._config.__class__.__name__.strip("Config")
+        pipeline_name = self._config.__class__.__name__.removesuffix("Config")
         logger.info(f"--- Initializing {pipeline_name} Pipeline ---")
 
         loaders = self._prepare_data()
@@ -80,6 +80,8 @@ class ClassifierPipeline:
         )
 
         trainer.run(self._config.hyper_params.epochs, train_loader, val_loader)
+
+        self._config.plots_dir.mkdir(parents=True, exist_ok=True)
 
         plot_training_results(
             epochs=self._config.hyper_params.epochs,
