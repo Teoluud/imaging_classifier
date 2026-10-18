@@ -11,34 +11,56 @@ if typing.TYPE_CHECKING:
     import torch
     from src.config import Config
 
+
 def setup_environment(config: Config, verbose: bool) -> torch.device:
-    """ Configures logging level, device assignment, and random seed.
-    """
+    """Configures logging level, device assignment, and random seed."""
     import torch
     from src.logger import logger
 
     if verbose:
         logger.setLevel("DEBUG")
-    
+
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     logger.debug(f"Using device: {device}")
 
-    torch.manual_seed(config.random_seed)
+    torch.manual_seed(config.hyper_params.random_seed)
     if torch.cuda.is_available():
-        torch.cuda.manual_seed(config.random_seed)
+        torch.cuda.manual_seed(config.hyper_params.random_seed)
 
     return device
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Fermi-LAT electron/proton classifier.")
+    parser = argparse.ArgumentParser(
+        description="Fermi-LAT electron/proton classifier."
+    )
     model_choice = parser.add_mutually_exclusive_group(required=True)
-    model_choice.add_argument("--merit", action="store_true", help="use the merit variables model")
-    model_choice.add_argument("--multi-branch", action="store_true", help="use the multi-branch CNN model")
-    model_choice.add_argument("--single-branch", action="store_true", help="use the single-branch CNN model")
-    parser.add_argument("--train", action="store_true", help="run the training loop on a newly instantiated model")
-    parser.add_argument("--epochs", type=int, default=None, help="override the config epochs. If set to None (default), it will use the value set in config.py")
-    parser.add_argument("-v", "--verbose", action="store_true", help="verbose option (set logger to debug mode)")
+    model_choice.add_argument(
+        "--merit", action="store_true", help="use the merit variables model"
+    )
+    model_choice.add_argument(
+        "--multi-branch", action="store_true", help="use the multi-branch CNN model"
+    )
+    model_choice.add_argument(
+        "--single-branch", action="store_true", help="use the single-branch CNN model"
+    )
+    parser.add_argument(
+        "--train",
+        action="store_true",
+        help="run the training loop on a newly instantiated model",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=None,
+        help="override the config epochs. If set to None (default), it will use the value set in config.py",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="verbose option (set logger to debug mode)",
+    )
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
@@ -54,21 +76,22 @@ def main() -> None:
         config = SingleBranchConfig()
     elif args.merit:
         model = FermiMeritVarsNN()
-        config=MeritConfig()
+        config = MeritConfig()
     else:
         raise RuntimeError
-    
+
     device = setup_environment(config, args.verbose)
 
     if args.epochs is not None:
-        config.epochs = args.epochs
-    
-    import multiprocessing
-    multiprocessing.set_start_method('spawn', force=True)
+        config.hyper_params.epochs = args.epochs
 
-    pipeline = ClassifierPipeline(model, config, device, args.train, args.merit)
+    import multiprocessing
+
+    multiprocessing.set_start_method("spawn", force=True)
+
+    pipeline = ClassifierPipeline(model, config, device, args.train)
     pipeline.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,5 +1,6 @@
 from typing import Protocol, Self
 from pathlib import Path
+from dataclasses import dataclass
 
 import torch
 import numpy as np
@@ -18,7 +19,7 @@ class Transform(Protocol):
     def __call__(self, x: torch.Tensor, meta: torch.Tensor) -> torch.Tensor: ...
 
 
-class Persistable(Protocol):
+class FittedTransform(Protocol):
     """A transform with fitted state that must be saved next to the model."""
 
     def __call__(self, x: torch.Tensor, meta: torch.Tensor) -> torch.Tensor: ...
@@ -30,6 +31,12 @@ class Persistable(Protocol):
 
     @classmethod
     def load(cls, path: Path) -> Self: ...
+
+
+@dataclass(frozen=True)
+class NormalizerSettings:
+    cls: type[FittedTransform]
+    save_path: Path
 
 
 class ImageLogNormalizer:
