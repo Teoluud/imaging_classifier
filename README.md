@@ -130,3 +130,4 @@ Plots go to `outputs/plots/<model>/`, where `<model>` is `singlebranch`, `multib
 - `roc_curve.png`: ROC curve with the electron as positive class
 - `probs_distribution.png`: per-class distribution of the classifier output
 - `error_energy_distribution.png`: prediction error versus reconstructed energy, for protons and electrons
+- `energy_distribution.png`: distribution of reconstructed energy, for protons and electrons
