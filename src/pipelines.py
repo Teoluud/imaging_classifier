@@ -128,7 +128,7 @@ class ClassifierPipeline:
         self._log_and_plot_metrics(results, split_name)
 
     def _log_and_plot_metrics(self, results: EvalResults, split_name: str) -> None:
-        """Handles classification metrics calculations and plotting."""
+        """Handles plotting and saving of evaluation metrics."""
         preds, truths, probs = results.preds, results.truths, results.probs
 
         plotter = EvaluationPlotter(
@@ -143,7 +143,7 @@ class ClassifierPipeline:
         plotter.plot_probs_distribution(probs, truths)
         if results.energies is not None:
             plotter.plot_error_energy_distribution(probs, truths, results.energies)
+            plotter.plot_energy_distribution(results.energies, truths)
 
-        # plotter.plot_energy_distribution(metrics["energies"], truths)
 
         logger.debug(f"Exported evaluation metrics to{self._config.plots_dir}")
