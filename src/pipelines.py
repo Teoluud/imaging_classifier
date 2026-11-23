@@ -19,11 +19,13 @@ class ClassifierPipeline:
         config: Config,
         device: torch.device,
         train: bool,
+        eval: bool,
     ) -> None:
         self._model = model.to(device)
         self._config = config
         self._device = device
         self._train = train
+        self._eval = eval
 
     def run(self) -> None:
         """Orchestrates the pipeline execution."""
@@ -39,19 +41,23 @@ class ClassifierPipeline:
 
     def _prepare_data(self) -> dict[str, Loader]:
         """Initializes Dataset and returns DataLoaders."""
-        dataset = self._config.dataset_cls(
-            self._config.data_dir, transform=self._config.transform
+        data_dir = (
+            self._config.evaluate_data_dir if self._eval else self._config.data_dir
         )
+        dataset = self._config.dataset_cls(data_dir, transform=self._config.transform)
         self.data_module = FermiDataModule(
             dataset=dataset,
             batch_size=self._config.hyper_params.batch_size,
         )
 
-        loaders = self.data_module.train_split(
-            train_split=self._config.hyper_params.train_split,
-            val_split=self._config.hyper_params.val_split,
-            random_state=self._config.hyper_params.random_seed,
-        )
+        if self._eval:
+            loaders = self.data_module.full_loader()
+        else:
+            loaders = self.data_module.train_split(
+                train_split=self._config.hyper_params.train_split,
+                val_split=self._config.hyper_params.val_split,
+                random_state=self._config.hyper_params.random_seed,
+            )
 
         # Setup the merit normalizer if needed
         if self._config.normalizer is not None:
@@ -112,12 +118,14 @@ class ClassifierPipeline:
 
         test_loader = (
             loaders["test"]
-            if self._config.hyper_params.val_split is not None
+            if (self._config.hyper_params.val_split is not None or self._eval)
             else loaders["val"]
         )
         split_name = (
             "Test" if self._config.hyper_params.val_split is not None else "Validation"
         )
+        if self._eval:
+            split_name = "Full evaluation"
         results = evaluator.evaluate(data_loader=test_loader, split_name=split_name)
         results = replace(
             results,
@@ -144,6 +152,5 @@ class ClassifierPipeline:
         if results.energies is not None:
             plotter.plot_error_energy_distribution(probs, truths, results.energies)
             plotter.plot_energy_distribution(results.energies, truths)
-
 
         logger.debug(f"Exported evaluation metrics to{self._config.plots_dir}")
