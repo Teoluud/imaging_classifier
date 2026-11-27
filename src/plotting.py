@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.colors import LogNorm
 import numpy as np
-from numpy.typing import NDArray
 import torch
 from torchmetrics import ConfusionMatrix
 from torchmetrics.classification import BinaryROC
@@ -136,7 +135,7 @@ class EvaluationPlotter:
 
     def plot_energy_distribution(
         self,
-        energies: NDArray[np.float32],
+        energies: torch.Tensor,
         truths: torch.Tensor,
         filename: str = "energy_distribution.png",
         title: str = "Energy Distribution",
@@ -145,7 +144,7 @@ class EvaluationPlotter:
 
         protons: list[float] = []
         electrons: list[float] = []
-        for i, energy in enumerate(energies):
+        for i, energy in enumerate(energies.numpy()):
             if truths[i] == 0:
                 protons.append(energy)
             else:
@@ -167,7 +166,7 @@ class EvaluationPlotter:
         filename: str = "error_energy_distribution.png",
         title: str = "Error vs Energy",
     ) -> None:
-        """Plots the confidence error against the event energy."""
+        """Plots the confidence error against the event reconstructed energy."""
 
         confidence = probs[torch.arange(len(truths)), truths].numpy()
         errors = 1.0 - confidence
@@ -192,7 +191,7 @@ class EvaluationPlotter:
             clean_energies[p_mask],
             clean_errors[p_mask],
             bins=[x_bins, y_bins],
-            cmap="viridis",
+            cmap="plasma",
             cmin=1,
             norm=LogNorm(),
         )

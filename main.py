@@ -44,10 +44,17 @@ def main() -> None:
     model_choice.add_argument(
         "--single-branch", action="store_true", help="use the single-branch CNN model"
     )
-    parser.add_argument(
+    train_eval_choice = parser.add_mutually_exclusive_group(required=False)
+    train_eval_choice.add_argument(
         "--train",
         action="store_true",
         help="run the training loop on a newly instantiated model",
+    )
+    train_eval_choice.add_argument(
+        "--eval-all",
+        dest="eval_all",
+        action="store_true",
+        help="run the evaluation on the whole dataset, without splits",
     )
     parser.add_argument(
         "--epochs",
@@ -89,7 +96,7 @@ def main() -> None:
 
     multiprocessing.set_start_method("spawn", force=True)
 
-    pipeline = ClassifierPipeline(model, config, device, args.train)
+    pipeline = ClassifierPipeline(model, config, device, args.train, args.eval_all)
     pipeline.run()
 
 

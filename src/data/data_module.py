@@ -53,7 +53,7 @@ class FermiDataModule:
             f"Unsupported dataset type for split '{split_name}': {type(dataset)!r}"
         )
 
-    def full_loader(self, shuffle: bool = False) -> Loader:
+    def full_loader(self, shuffle: bool = False) -> dict[str, Loader]:
         """Returns the DataLoader for the full dataset."""
         loader = DataLoader(
             self.dataset,
@@ -62,7 +62,8 @@ class FermiDataModule:
             num_workers=8,
             pin_memory=True,
         )
-        return loader
+        self.loaders = {"test": loader}
+        return self.loaders
 
     def train_split(
         self, train_split: float, val_split: float | None = None, random_state: int = 42
